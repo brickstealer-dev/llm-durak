@@ -231,8 +231,7 @@ class CharacterService {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        temperature: 0.8,
-        max_tokens: 1000
+        temperature: 0.8
       })
     });
 
@@ -242,15 +241,28 @@ class CharacterService {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
+    const rawContent = data.choices?.[0]?.message?.content || '';
+    
+    // Strip <think> reasoning blocks if present
+    const content = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
     
     // Extract JSON from response even if surrounded by thoughts or markdown
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const firstBrace = content.indexOf('{');
+    const lastBrace = content.lastIndexOf('}');
+    
+    if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
       throw new Error('Нейросеть вернула невалидный формат ответа. Попробуйте еще раз.');
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
+    const jsonStr = content.substring(firstBrace, lastBrace + 1);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      // Try soft clean of trailing commas
+      const fixedJson = jsonStr.replace(/,\s*([}\]])/g, '$1');
+      parsed = JSON.parse(fixedJson);
+    }
 
     if (!parsed || !parsed.name) {
       throw new Error('Не удалось разобрать профиль персонажа из ответа LLM');
