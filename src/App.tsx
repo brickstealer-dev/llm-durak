@@ -7,7 +7,9 @@ import {
   GameState,
   MoveLogItem,
   PlayerConfig,
+  PlayerSessionScore,
   PlayerState,
+  SessionStats,
   TablePair
 } from './types/durak';
 import { DurakEngine, formatCard } from './services/durakEngine';
@@ -27,7 +29,7 @@ import { GameOverModal } from './components/GameOverModal/GameOverModal';
 import { Button } from './components/ui/button';
 import { Badge } from './components/ui/badge';
 import { cn } from './lib/utils';
-import { Brain, Coins, History, Loader2, MessageSquareQuote, Mic, MicOff, Pause, Play, RefreshCw, Settings, Sparkles, Volume2, VolumeX, Zap } from 'lucide-react';
+import { AlertTriangle, Brain, Coins, History, Loader2, MessageSquareQuote, Mic, MicOff, Pause, Play, RefreshCw, Settings, Sparkles, Trophy, Volume2, VolumeX, Zap } from 'lucide-react';
 
 const DEFAULT_PLAYERS: PlayerConfig[] = [
   {
@@ -221,6 +223,20 @@ export const App: React.FC = () => {
     } catch {}
   }, []);
 
+  // Failed bot turn state for manual retry
+  const [failedBotTurn, setFailedBotTurn] = useState<{
+    playerIndex: number;
+    playerName: string;
+    errorMessage: string;
+  } | null>(null);
+
+  const handleRetryBotTurn = () => {
+    if (!failedBotTurn) return;
+    const targetPlayerIndex = failedBotTurn.playerIndex;
+    setFailedBotTurn(null);
+    triggerLlmMove(targetPlayerIndex);
+  };
+
   // Sync sounds & speech state
   const handleToggleMute = () => {
     const next = !isMuted;
@@ -246,6 +262,28 @@ export const App: React.FC = () => {
       setStatusMessage(next ? '⏸️ Игра на паузе' : 'Игра продолжается');
       return next;
     });
+  };
+
+  // Session Scoreboard Stats (Persisted across rounds)
+  const [sessionStats, setSessionStats] = useState<SessionStats>(() => {
+    try {
+      const saved = localStorage.getItem('durak_session_stats');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && typeof parsed.gamesPlayed === 'number' && parsed.scores) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return { gamesPlayed: 0, scores: {} };
+  });
+
+  const handleResetSessionScore = () => {
+    const empty: SessionStats = { gamesPlayed: 0, scores: {} };
+    setSessionStats(empty);
+    try {
+      localStorage.removeItem('durak_session_stats');
+    } catch {}
   };
 
   // Reset Session Costs
@@ -286,6 +324,7 @@ export const App: React.FC = () => {
     setIsGameOverOpen(false);
     setGameOverSpeech(undefined);
     setIsGameBusy(false);
+    setFailedBotTurn(null);
 
     sounds.playCardDrop();
     const firstPlayer = freshState.players[freshState.attackerIndex];
@@ -347,6 +386,7 @@ export const App: React.FC = () => {
       setLiveThinkingText('');
       setIsStreamingThinking(true);
       setCurrentMoveCostUsd(0);
+      setFailedBotTurn(null);
 
       try {
         const lastComment = Object.values(speechBubbles).slice(-1)[0];
@@ -386,6 +426,7 @@ export const App: React.FC = () => {
 
         const nextState = engine.getState();
         setGameState({ ...nextState });
+        setFailedBotTurn(null);
 
         const moveCost = result.costUsd || 0;
         setCurrentMoveCostUsd(moveCost);
@@ -442,7 +483,12 @@ export const App: React.FC = () => {
         }
         const msg = err instanceof Error ? err.message : String(err);
         console.error('[App] LLM move failed:', err);
-        setStatusMessage(`Ошибка хода: ${msg}`);
+        setFailedBotTurn({
+          playerIndex: turnPlayerIndex,
+          playerName: player.config.name,
+          errorMessage: msg
+        });
+        setStatusMessage(`🚨 ${player.config.name} не смог походить: ${msg}`);
       } finally {
         setIsGameBusy(false);
         setThinkingPlayerIndex(null);
@@ -456,7 +502,7 @@ export const App: React.FC = () => {
   const autoTurnTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isPaused || isGameBusy || gameState.phase === 'game_over') return;
+    if (isPaused || isGameBusy || gameState.phase === 'game_over' || failedBotTurn) return;
     if (!activePlayer || activePlayer.isHuman) return;
 
     if (autoTurnTimeoutRef.current) {
@@ -472,12 +518,54 @@ export const App: React.FC = () => {
         clearTimeout(autoTurnTimeoutRef.current);
       }
     };
-  }, [activePlayerIndex, activePlayer, isGameBusy, isPaused, gameState.phase, gameState.moveNumber, triggerLlmMove]);
+  }, [activePlayerIndex, activePlayer, isGameBusy, isPaused, gameState.phase, gameState.moveNumber, failedBotTurn, triggerLlmMove]);
 
   // Handle Game Over
   const handleGameOver = async (finalState: GameState) => {
     sounds.playVictory();
     setIsGameOverOpen(true);
+
+    // 1. Update session scoreboard
+    const winnerIdx = finalState.winnerOrder[0];
+    const durakIdx = finalState.durakIndex;
+
+    const winnerId = winnerIdx !== undefined ? finalState.players[winnerIdx]?.config.id : null;
+    const durakId = durakIdx !== null && durakIdx !== undefined ? finalState.players[durakIdx]?.config.id : null;
+
+    setSessionStats(prev => {
+      const nextScores: Record<string, PlayerSessionScore> = { ...prev.scores };
+
+      finalState.players.forEach(p => {
+        if (!nextScores[p.config.id]) {
+          nextScores[p.config.id] = { wins: 0, durakCount: 0 };
+        }
+      });
+
+      if (winnerId && nextScores[winnerId]) {
+        nextScores[winnerId] = {
+          ...nextScores[winnerId],
+          wins: nextScores[winnerId].wins + 1
+        };
+      }
+
+      if (durakId && nextScores[durakId]) {
+        nextScores[durakId] = {
+          ...nextScores[durakId],
+          durakCount: nextScores[durakId].durakCount + 1
+        };
+      }
+
+      const nextStats: SessionStats = {
+        gamesPlayed: prev.gamesPlayed + 1,
+        scores: nextScores
+      };
+
+      try {
+        localStorage.setItem('durak_session_stats', JSON.stringify(nextStats));
+      } catch {}
+
+      return nextStats;
+    });
 
     const durak = finalState.durakIndex !== null ? finalState.players[finalState.durakIndex] : null;
     const winner = finalState.winnerOrder.length > 0 ? finalState.players[finalState.winnerOrder[0]] : null;
@@ -719,19 +807,40 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Session Cost & Status Message */}
-        <div className="flex items-center gap-2">
+        {/* Session Scoreboard & Cost */}
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+          {/* Session Scoreboard Badge */}
+          <button
+            onClick={() => setIsGameOverOpen(true)}
+            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-[10.5px] sm:text-[11px] font-mono text-amber-300 font-bold hover:bg-amber-500/25 transition-colors shadow-sm"
+            title={`Счёт за сеанс (Партий: ${sessionStats.gamesPlayed}). Нажмите для просмотра детальной таблицы`}
+          >
+            <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate max-w-[110px] sm:max-w-none">
+              {sessionStats.gamesPlayed > 0
+                ? gameState.players
+                    .map(p => `${p.config.name.split(' ')[0]}: ${sessionStats.scores[p.config.id]?.wins || 0}`)
+                    .join(' : ')
+                : 'Счёт 0 : 0'}
+            </span>
+            {sessionStats.gamesPlayed > 0 && (
+              <span className="text-[8.5px] sm:text-[9px] px-1 py-0 rounded bg-amber-500/25 text-amber-200">
+                #{sessionStats.gamesPlayed}
+              </span>
+            )}
+          </button>
+
           {/* Cumulative Session Cost */}
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-[11px] font-mono text-emerald-300 font-bold hover:bg-emerald-900/60 transition-colors shadow-sm"
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-[10.5px] sm:text-[11px] font-mono text-emerald-300 font-bold hover:bg-emerald-900/60 transition-colors shadow-sm"
             title="Нажмите, чтобы настроить валюту или сбросить расходы"
           >
-            <Coins className="w-3.5 h-3.5 text-emerald-400" />
+            <Coins className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
             <span>Сеанс: {currencyService.formatCost(sessionTotalCostUsd, currencyCode)}</span>
           </button>
 
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] sm:text-xs text-amber-300 font-medium max-w-[200px] sm:max-w-md truncate shadow-inner">
+          <div className="hidden md:flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-medium max-w-[200px] truncate shadow-inner">
             <Sparkles className="w-3 h-3 text-amber-400 shrink-0 animate-pulse" />
             <span className="truncate">{statusMessage}</span>
           </div>
@@ -908,10 +1017,39 @@ export const App: React.FC = () => {
               onSelectTablePair={pairId => setSelectedTablePairId(pairId)}
               playerCostsUsd={playerCostsUsd}
               currencyCode={currencyCode}
+              sessionScores={sessionStats.scores}
               isPaused={isPaused}
               onTogglePause={handleTogglePause}
             />
           </div>
+
+          {/* Bot Turn Error Banner & Retry Button */}
+          {failedBotTurn && (
+            <div className="shrink-0 w-full px-3 py-2 rounded-xl bg-rose-950/95 border border-rose-500/70 text-rose-200 text-xs shadow-2xl flex flex-wrap items-center justify-between gap-2 animate-in fade-in-0 slide-in-from-bottom-2">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-bounce" />
+                <div className="min-w-0">
+                  <div className="font-bold text-rose-100 flex items-center gap-1.5 flex-wrap">
+                    <span>{failedBotTurn.playerName} не смог сделать ход</span>
+                    <span className="text-[9.5px] px-1.5 py-0.2 rounded bg-rose-900/80 border border-rose-700/60 text-rose-300">
+                      Попытки исчерпаны
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-rose-300/80 truncate max-w-sm sm:max-w-md" title={failedBotTurn.errorMessage}>
+                    {failedBotTurn.errorMessage}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                onClick={handleRetryBotTurn}
+                className="h-7 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-3 text-xs shadow-md flex items-center gap-1.5 shrink-0 ml-auto active:scale-95 transition-all"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Повторить ход (3 попытки)</span>
+              </Button>
+            </div>
+          )}
 
           {/* Player Hand & Controls Box */}
           <div className="shrink-0 w-full rounded-2xl bg-slate-900/90 border border-slate-800/90 p-2 backdrop-blur-md shadow-xl flex flex-col items-center">
@@ -947,7 +1085,17 @@ export const App: React.FC = () => {
                     )}
                   </>
                 ) : (
-                  <span className="font-bold text-slate-200">👤 {humanPlayer?.config.name}</span>
+                  <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                    <span>👤 {humanPlayer?.config.name}</span>
+                    {sessionStats.scores[humanPlayer?.config.id] && (sessionStats.scores[humanPlayer.config.id].wins > 0 || sessionStats.scores[humanPlayer.config.id].durakCount > 0) && (
+                      <span
+                        className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-amber-300 font-bold flex items-center gap-0.5 shadow-sm"
+                        title={`Счёт за сеанс: ${sessionStats.scores[humanPlayer.config.id].wins} побед, ${sessionStats.scores[humanPlayer.config.id].durakCount} дурак`}
+                      >
+                        🏆{sessionStats.scores[humanPlayer.config.id].wins} {sessionStats.scores[humanPlayer.config.id].durakCount > 0 && `💩${sessionStats.scores[humanPlayer.config.id].durakCount}`}
+                      </span>
+                    )}
+                  </span>
                 )}
 
                 {isHumanTurn && (
@@ -1042,6 +1190,8 @@ export const App: React.FC = () => {
         state={gameState}
         onNewGame={startNewGame}
         gameOverSpeech={gameOverSpeech}
+        sessionStats={sessionStats}
+        onResetSessionScore={handleResetSessionScore}
       />
     </div>
   );

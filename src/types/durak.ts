@@ -152,3 +152,13 @@ export interface RetryLog {
   errorReason?: string;
   timestamp: number;
 }
+
+export interface PlayerSessionScore {
+  wins: number;
+  durakCount: number;
+}
+
+export interface SessionStats {
+  gamesPlayed: number;
+  scores: Record<string, PlayerSessionScore>;
+}

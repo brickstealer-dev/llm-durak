@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Card, GameState, TablePair } from '../../types/durak';
+import { Card, GameState, PlayerSessionScore, TablePair } from '../../types/durak';
 import { PlayingCard } from '../Cards/PlayingCard';
 import { OpponentSeat } from '../OpponentSeat/OpponentSeat';
 import { Badge } from '../ui/badge';
@@ -20,6 +20,7 @@ export interface CardTableProps {
   onSelectTablePair?: (pairId: string) => void;
   playerCostsUsd?: Record<string, number>;
   currencyCode?: CurrencyCode;
+  sessionScores?: Record<string, PlayerSessionScore>;
   isPaused?: boolean;
   onTogglePause?: () => void;
   className?: string;
@@ -35,6 +36,7 @@ export const CardTable: React.FC<CardTableProps> = ({
   onSelectTablePair,
   playerCostsUsd = {},
   currencyCode = 'RUB',
+  sessionScores = {},
   isPaused = false,
   onTogglePause,
   className
@@ -92,6 +94,7 @@ export const CardTable: React.FC<CardTableProps> = ({
               speechText={speechBubbles[opp.index]}
               totalCostUsd={playerCostsUsd[opp.config.id] || 0}
               currencyCode={currencyCode}
+              sessionScore={sessionScores[opp.config.id]}
               compact={opponents.length >= 3}
               alignSpeech={alignSpeech}
             />

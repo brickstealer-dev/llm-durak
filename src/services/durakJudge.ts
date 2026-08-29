@@ -390,16 +390,11 @@ export class DurakJudge {
       }
     }
 
-    // Fallback if model failed all retries
+    // Fail explicitly if model failed all retries
     if (!finalChosenAction) {
-      const legalActions = engine.getLegalActions(playerIndex);
-      if (legalActions.length > 0) {
-        // Fallback to defend/attack instead of mindless take if possible
-        finalChosenAction = legalActions[0];
-        finalComment = 'Автоматический ход арбитра.';
-      } else {
-        throw new Error('Нет доступных ходов.');
-      }
+      throw new Error(
+        `Модель не смогла сделать легальный ход после ${maxRetries} попыток. ${lastErrorReason ? `Причина: ${lastErrorReason}` : ''}`
+      );
     }
 
     // Apply action to engine

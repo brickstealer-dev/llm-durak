@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { GameState, PlayerConfig } from '../../types/durak';
-import { CHARACTER_PROFILES } from '../../services/prompts';
+import { GameState, SessionStats } from '../../types/durak';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +11,7 @@ import {
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { sounds } from '../../services/soundEffects';
-import { Award, Crown, MessageSquareQuote, RotateCcw, ShieldAlert } from 'lucide-react';
+import { Award, Crown, MessageSquareQuote, RotateCcw, ShieldAlert, Trophy } from 'lucide-react';
 
 export interface GameOverModalProps {
   isOpen: boolean;
@@ -20,6 +19,8 @@ export interface GameOverModalProps {
   state: GameState;
   onNewGame: () => void;
   gameOverSpeech?: string;
+  sessionStats?: SessionStats;
+  onResetSessionScore?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -27,7 +28,9 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onClose,
   state,
   onNewGame,
-  gameOverSpeech
+  gameOverSpeech,
+  sessionStats,
+  onResetSessionScore
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -82,7 +85,7 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
 
         {/* Winner Order Table */}
         <div className="space-y-1.5 py-1 text-xs">
-          <span className="font-semibold text-slate-400 block mb-1">Итоговая таблица:</span>
+          <span className="font-semibold text-slate-400 block mb-1">Итоги партии:</span>
           {state.winnerOrder.map((pIdx, rank) => {
             const p = state.players[pIdx];
             return (
@@ -101,6 +104,44 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
             );
           })}
         </div>
+
+        {/* Session Scoreboard */}
+        {sessionStats && sessionStats.gamesPlayed > 0 && (
+          <div className="p-2.5 rounded-xl bg-slate-900/90 border border-amber-500/30 text-left text-xs space-y-1.5 shadow-inner">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-amber-400 flex items-center gap-1.5 text-[11.5px]">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                Счёт за сеанс ({sessionStats.gamesPlayed} {sessionStats.gamesPlayed === 1 ? 'партия' : sessionStats.gamesPlayed < 5 ? 'партии' : 'партий'}):
+              </span>
+              {onResetSessionScore && (
+                <button
+                  type="button"
+                  onClick={onResetSessionScore}
+                  className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors underline"
+                >
+                  Сброс счёта
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+              {state.players.map(p => {
+                const sc = sessionStats.scores[p.config.id] || { wins: 0, durakCount: 0 };
+                return (
+                  <div
+                    key={p.config.id}
+                    className="flex items-center justify-between px-2 py-1 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px]"
+                  >
+                    <span className="font-bold text-slate-200 truncate pr-1">{p.config.name}</span>
+                    <span className="font-mono font-bold text-amber-300 shrink-0">
+                      🏆{sc.wins} <span className="text-slate-500">|</span> 💩{sc.durakCount}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Final Speech */}
         {gameOverSpeech && (

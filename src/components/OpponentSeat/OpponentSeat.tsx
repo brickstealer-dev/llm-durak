@@ -1,5 +1,4 @@
-import React from 'react';
-import { CharacterStyle, PlayerState } from '../../types/durak';
+import { CharacterStyle, PlayerSessionScore, PlayerState } from '../../types/durak';
 import { CHARACTER_PROFILES } from '../../services/prompts';
 import { PlayingCard } from '../Cards/PlayingCard';
 import { Badge } from '../ui/badge';
@@ -17,6 +16,7 @@ export interface OpponentSeatProps {
   tokensPerSecond?: number;
   totalCostUsd?: number;
   currencyCode?: CurrencyCode;
+  sessionScore?: PlayerSessionScore;
   compact?: boolean;
   alignSpeech?: 'left' | 'center' | 'right';
   className?: string;
@@ -32,6 +32,7 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
   tokensPerSecond,
   totalCostUsd = 0,
   currencyCode = 'RUB',
+  sessionScore,
   compact = false,
   alignSpeech = 'center',
   className
@@ -121,11 +122,19 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
 
         {/* Right Column: 3-Line Info Section */}
         <div className="flex flex-col min-w-0 flex-1 leading-tight gap-0.5">
-          {/* Строка 1: Имя */}
+          {/* Строка 1: Имя + Счёт сеанса */}
           <div className="flex items-center justify-between gap-1">
             <span className="font-bold text-[9.5px] sm:text-xs text-slate-100 truncate">
               {displayName}
             </span>
+            {sessionScore && (sessionScore.wins > 0 || sessionScore.durakCount > 0) && (
+              <span
+                className="shrink-0 text-[7.5px] sm:text-[8.5px] font-mono px-1 py-0 rounded bg-slate-800 border border-slate-700/80 text-amber-300 font-bold flex items-center gap-0.5"
+                title={`Счёт за сеанс — Побед: ${sessionScore.wins}, Дурак: ${sessionScore.durakCount}`}
+              >
+                🏆{sessionScore.wins} {sessionScore.durakCount > 0 && `💩${sessionScore.durakCount}`}
+              </span>
+            )}
           </div>
 
           {/* Строка 2: Модель */}
