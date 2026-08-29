@@ -27,8 +27,9 @@ import {
 } from '../../services/lmStudioClient';
 import { currencyService, CurrencyCode } from '../../services/currencyService';
 import { speechService } from '../../services/speechService';
+import { PlayingCard } from '../Cards/PlayingCard';
 import { cn } from '../../lib/utils';
-import { Coins, Cpu, Globe, Loader2, RefreshCw, Sparkles, Trash2, User, Users, Volume2 } from 'lucide-react';
+import { Coins, Cpu, FastForward, Gauge, Globe, Loader2, Play, RefreshCw, Sparkles, Trash2, User, Users, Volume2, Zap } from 'lucide-react';
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -67,6 +68,35 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [localPlayers, setLocalPlayers] = useState<PlayerConfig[]>(playersConfig);
   const [localLmUrl, setLocalLmUrl] = useState(lmStudioBaseUrl);
   const [localApiKey, setLocalApiKey] = useState(openRouterApiKey);
+  const [localAnimSpeed, setLocalAnimSpeed] = useState<string>(() => {
+    try {
+      return localStorage.getItem('durak_anim_speed') || '1';
+    } catch {}
+    return '1';
+  });
+  const [isTestingAnim, setIsTestingAnim] = useState(false);
+
+  // Sync CSS variable when animation speed changes
+  const handleAnimSpeedChange = (speed: string) => {
+    setLocalAnimSpeed(speed);
+    try {
+      localStorage.setItem('durak_anim_speed', speed);
+    } catch {}
+    const durationMap: Record<string, number> = {
+      '0.25': 1.4,
+      '0.5': 0.8,
+      '1': 0.45,
+      '1.5': 0.25,
+      '0': 0.01
+    };
+    const dur = durationMap[speed] ?? 0.45;
+    document.documentElement.style.setProperty('--card-anim-duration', `${dur}s`);
+  };
+
+  const handleTestAnimation = () => {
+    setIsTestingAnim(false);
+    setTimeout(() => setIsTestingAnim(true), 30);
+  };
   const [selectedCurrency, setSelectedCurrency] = useState<CurrencyCode>(currencyCode || currencyService.getCurrency());
   const [currentRate, setCurrentRate] = useState<number>(currencyService.getRate(currencyCode || 'RUB'));
   const [isUpdatingRates, setIsUpdatingRates] = useState(false);
@@ -275,6 +305,67 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 checked={localMode === 'perevodnoy'}
                 onCheckedChange={checked => setLocalMode(checked ? 'perevodnoy' : 'podkidnoy')}
               />
+            </div>
+
+            {/* Animation Speed & Live Test */}
+            <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <FastForward className="w-4 h-4 text-amber-400" />
+                  <span className="font-semibold text-sm text-slate-200">Скорость анимации полета карт</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTestAnimation}
+                  className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/20 px-2.5 font-bold flex items-center gap-1"
+                >
+                  <Play className="w-3 h-3 fill-amber-400 text-amber-400" />
+                  <span>Тест броска</span>
+                </Button>
+              </div>
+
+              {/* Speed Buttons */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { id: '0.25', label: '0.25x (Slow-Mo)', desc: 'Замедленно' },
+                  { id: '0.5', label: '0.5x', desc: 'Плавная' },
+                  { id: '1', label: '1x (Норма)', desc: 'Стандарт' },
+                  { id: '1.5', label: '1.5x (Быстро)', desc: 'Динамично' }
+                ].map(spd => (
+                  <button
+                    key={spd.id}
+                    type="button"
+                    onClick={() => handleAnimSpeedChange(spd.id)}
+                    className={cn(
+                      'flex flex-col items-center justify-center p-1.5 rounded-lg border text-center transition-all cursor-pointer',
+                      localAnimSpeed === spd.id
+                        ? 'bg-amber-500 text-slate-950 font-bold border-amber-400 shadow-md shadow-amber-500/20'
+                        : 'bg-slate-900/80 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                    )}
+                  >
+                    <span className="text-[11px] font-bold">{spd.label}</span>
+                    <span className="text-[9px] opacity-75">{spd.desc}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Test Animation Arena */}
+              {isTestingAnim && (
+                <div className="relative w-full h-24 rounded-xl bg-[#0e4c3a]/70 border border-emerald-500/30 overflow-hidden flex items-center justify-center shadow-inner mt-2">
+                  <div className="absolute inset-0 flex items-center justify-center text-[10px] text-emerald-300/40 font-mono pointer-events-none">
+                    Траектория полета карты из руки на сукно стола
+                  </div>
+                  <div className="relative animate-card-throw-human">
+                    <PlayingCard
+                      card={{ id: 'test-card', suit: 'hearts', rank: 'A', value: 14 }}
+                      isTrump
+                      size="md"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Players List */}

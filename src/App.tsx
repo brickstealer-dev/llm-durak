@@ -138,9 +138,21 @@ export const App: React.FC = () => {
 
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Sync speech service initial state
+  // Sync speech service & animation speed initial state
   useEffect(() => {
     speechService.setEnabled(isTtsEnabled);
+    try {
+      const savedSpeed = localStorage.getItem('durak_anim_speed') || '1';
+      const durationMap: Record<string, number> = {
+        '0.25': 1.4,
+        '0.5': 0.8,
+        '1': 0.45,
+        '1.5': 0.25,
+        '0': 0.01
+      };
+      const dur = durationMap[savedSpeed] ?? 0.45;
+      document.documentElement.style.setProperty('--card-anim-duration', `${dur}s`);
+    } catch {}
   }, []);
 
   // Sync sounds & speech state
