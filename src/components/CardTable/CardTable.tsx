@@ -135,27 +135,38 @@ export const CardTable: React.FC<CardTableProps> = ({
           )}
         </div>
 
-        {/* Center: Active Cards on Table (Battle Field) */}
-        <div className="flex-1 min-h-0 h-full flex items-center justify-center px-1 overflow-x-auto no-scrollbar">
+        {/* Center: Active Cards on Table (Battle Field with Dynamic Density & Scaling) */}
+        <div className="flex-1 min-h-0 h-full flex items-center justify-center px-1 overflow-x-auto no-scrollbar max-w-full">
           {state.table.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center text-emerald-300/40 border border-dashed border-emerald-500/20 rounded-xl p-3 sm:p-4 max-w-xs">
               <span className="text-xl sm:text-2xl mb-0.5">🃏</span>
               <span className="text-[11px] sm:text-xs font-medium">Стол пуст. Ожидание первого хода...</span>
             </div>
           ) : (
-            <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 md:gap-5 py-1">
+            <div
+              className={cn(
+                'flex items-center justify-center py-1 transition-all duration-300 origin-center select-none',
+                state.table.length <= 2 && 'gap-3 sm:gap-6 scale-100',
+                state.table.length === 3 && 'gap-2 sm:gap-4 scale-100',
+                state.table.length === 4 && 'gap-1 sm:gap-2.5 scale-95 sm:scale-100',
+                state.table.length === 5 && '-space-x-3 sm:-space-x-1 scale-90 sm:scale-95',
+                state.table.length >= 6 && '-space-x-5 sm:-space-x-2 scale-80 sm:scale-90'
+              )}
+            >
               {state.table.map((pair, idx) => {
                 const isSelected = selectedTablePairId === pair.id;
                 const isUncovered = !pair.defendCard;
                 const isTrump = pair.attackCard.suit === trumpSuit;
+                const isDense = state.table.length >= 5;
 
                 return (
                   <div
                     key={pair.id}
                     onClick={() => isUncovered && onSelectTablePair?.(pair.id)}
+                    style={{ zIndex: isSelected ? 40 : idx + 2 }}
                     className={cn(
-                      'relative transition-all duration-200 cursor-pointer',
-                      isSelected && 'ring-4 ring-amber-400 rounded-xl scale-105 shadow-2xl z-30'
+                      'relative transition-all duration-200 cursor-pointer shrink-0',
+                      isSelected && 'ring-4 ring-amber-400 rounded-xl scale-105 shadow-2xl z-40'
                     )}
                   >
                     {/* Attack Card (with dynamic throw animation) */}
@@ -164,25 +175,28 @@ export const CardTable: React.FC<CardTableProps> = ({
                         card={pair.attackCard}
                         isTrump={isTrump}
                         rotation={-4 + (idx % 3) * 2}
-                        size="md"
+                        size={isDense ? 'md' : 'md'}
                       />
                     </div>
 
                     {/* Defending / Covering Card on top (with dynamic slam/cover animation) */}
                     {pair.defendCard && (
-                      <div className="absolute -top-3 sm:-top-4 -right-3 sm:-right-4 z-20 animate-card-defend-slam">
+                      <div className={cn(
+                        'absolute z-20 animate-card-defend-slam',
+                        isDense ? '-top-2.5 -right-2.5 sm:-top-3.5 sm:-right-3.5' : '-top-3 sm:-top-4 -right-3 sm:-right-4'
+                      )}>
                         <PlayingCard
                           card={pair.defendCard}
                           isTrump={pair.defendCard.suit === trumpSuit}
                           rotation={6 - (idx % 2) * 3}
-                          size="md"
+                          size={isDense ? 'md' : 'md'}
                         />
                       </div>
                     )}
 
                     {/* Uncovered Warning Pulse */}
                     {isUncovered && (
-                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-full shadow animate-pulse">
+                      <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-rose-600 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.2 rounded-full shadow animate-pulse z-30">
                         БЕЙ!
                       </div>
                     )}
