@@ -906,9 +906,6 @@ export const App: React.FC = () => {
                   </Badge>
                 )}
               </div>
-              <span className="text-[10px] text-slate-400 font-medium">
-                {humanPlayer?.hand.length || 0} карт на руках
-              </span>
             </div>
 
             <PlayerHand
