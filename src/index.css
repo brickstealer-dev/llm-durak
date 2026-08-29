@@ -131,12 +131,42 @@
 @keyframes card-deal-in {
   0% {
     opacity: 0;
-    transform: translateY(20px) scale(0.85);
+    transform: translate(-35px, -25px) scale(0.8) rotate(-12deg);
+  }
+  65% {
+    opacity: 1;
+    transform: translate(2px, 2px) scale(1.02) rotate(1deg);
   }
   100% {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(0, 0) scale(1) rotate(0deg);
   }
+}
+
+/* Flying off deck effect */
+@keyframes fly-off-deck {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5));
+  }
+  35% {
+    opacity: 1;
+    transform: translate(30px, -12px) scale(1.06) rotate(14deg);
+    filter: drop-shadow(0 18px 24px rgba(0,0,0,0.6));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(95px, 45px) scale(0.8) rotate(26deg);
+    filter: drop-shadow(0 25px 30px rgba(0,0,0,0));
+  }
+}
+
+@keyframes deck-recoil {
+  0% { transform: scale(1); }
+  35% { transform: scale(0.95) translateY(2px); }
+  75% { transform: scale(1.02) translateY(-1px); }
+  100% { transform: scale(1) translateY(0); }
 }
 
 .animate-card-throw {
@@ -148,5 +178,13 @@
 }
 
 .animate-card-deal-in {
-  animation: card-deal-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: card-deal-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fly-off-deck {
+  animation: fly-off-deck 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+.animate-deck-recoil {
+  animation: deck-recoil 0.3s ease-out;
 }

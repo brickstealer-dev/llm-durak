@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, GameState, TablePair } from '../../types/durak';
 import { PlayingCard } from '../Cards/PlayingCard';
 import { OpponentSeat } from '../OpponentSeat/OpponentSeat';
@@ -28,10 +28,10 @@ export interface CardTableProps {
 export const CardTable: React.FC<CardTableProps> = ({
   state,
   activePlayerIndex,
-  thinkingPlayerIndex,
-  tokensPerSecond,
-  speechBubbles,
-  selectedTablePairId,
+  thinkingPlayerIndex = null,
+  tokensPerSecond = 0,
+  speechBubbles = {},
+  selectedTablePairId = null,
   onSelectTablePair,
   playerCostsUsd = {},
   currencyCode = 'RUB',
@@ -39,8 +39,22 @@ export const CardTable: React.FC<CardTableProps> = ({
   onTogglePause,
   className
 }) => {
-  const opponents = state.players.filter(p => p.index !== 0); // Player 0 is bottom human
   const trumpSuit = state.trumpSuit;
+  const opponents = state.players.filter(p => p.index !== 0); // Player 0 is bottom human
+
+  // Track deck changes to trigger flying card animation
+  const prevDeckCountRef = useRef(state.deck.length);
+  const [isDrawing, setIsDrawing] = useState(false);
+
+  useEffect(() => {
+    if (state.deck.length < prevDeckCountRef.current) {
+      setIsDrawing(true);
+      const timer = setTimeout(() => setIsDrawing(false), 420);
+      prevDeckCountRef.current = state.deck.length;
+      return () => clearTimeout(timer);
+    }
+    prevDeckCountRef.current = state.deck.length;
+  }, [state.deck.length]);
 
   return (
     <div
@@ -91,7 +105,14 @@ export const CardTable: React.FC<CardTableProps> = ({
 
               {/* Remaining Deck stack on top */}
               {state.deck.length > 0 && (
-                <div className="relative z-10">
+                <div className={cn("relative z-10 transition-transform", isDrawing && "animate-deck-recoil")}>
+                  {/* Flying ghost card escaping from deck */}
+                  {isDrawing && (
+                    <div className="absolute inset-0 z-30 pointer-events-none animate-fly-off-deck">
+                      <PlayingCard faceDown disabled size="md" />
+                    </div>
+                  )}
+
                   <PlayingCard
                     faceDown
                     disabled
