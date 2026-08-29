@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Suit } from '../../types/durak';
 import { cn } from '../../lib/utils';
+import { CardBackGraphic, SuitSvg } from './CardGraphics';
 
 interface PlayingCardProps {
   card?: Card;
@@ -16,8 +17,10 @@ interface PlayingCardProps {
 }
 
 export function getCardAssetUrl(card?: Card, faceDown?: boolean): string {
+  const base = import.meta.env.BASE_URL || './';
+  const cleanBase = base.endsWith('/') ? base : `${base}/`;
   if (faceDown || !card) {
-    return '/cards/Red_Back.svg';
+    return `${cleanBase}cards/Red_Back.svg`;
   }
   const suitLetterMap: Record<Suit, string> = {
     spades: 'S',
@@ -26,7 +29,7 @@ export function getCardAssetUrl(card?: Card, faceDown?: boolean): string {
     clubs: 'C'
   };
   const suitLetter = suitLetterMap[card.suit] || 'S';
-  return `/cards/${card.rank}${suitLetter}.svg`;
+  return `${cleanBase}cards/${card.rank}${suitLetter}.svg`;
 }
 
 export const PlayingCard: React.FC<PlayingCardProps> = ({
@@ -41,6 +44,8 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
   className,
   size = 'md'
 }) => {
+  const [imgError, setImgError] = useState(false);
+
   const sizeClasses = {
     sm: 'w-12 sm:w-14 md:w-16 aspect-[2.5/3.5]',
     md: 'w-16 sm:w-20 md:w-22 lg:w-24 aspect-[2.5/3.5]',
@@ -48,6 +53,7 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
   };
 
   const assetUrl = getCardAssetUrl(card, faceDown);
+  const isRed = card?.suit === 'hearts' || card?.suit === 'diamonds';
 
   return (
     <div
@@ -63,14 +69,33 @@ export const PlayingCard: React.FC<PlayingCardProps> = ({
         className
       )}
     >
-      {/* Real Authentic SVG Card Image */}
-      <img
-        src={assetUrl}
-        alt={card ? `${card.rank} of ${card.suit}` : 'Card Back'}
-        className="w-full h-full object-contain pointer-events-none drop-shadow-md rounded-[6px] sm:rounded-[8px]"
-        loading="eager"
-        draggable={false}
-      />
+      {/* Real Authentic SVG Card Image with Vector Fallback */}
+      {!imgError ? (
+        <img
+          src={assetUrl}
+          alt={card ? `${card.rank} of ${card.suit}` : 'Card Back'}
+          className="w-full h-full object-contain pointer-events-none drop-shadow-md rounded-[6px] sm:rounded-[8px]"
+          loading="eager"
+          draggable={false}
+          onError={() => setImgError(true)}
+        />
+      ) : faceDown || !card ? (
+        <CardBackGraphic />
+      ) : (
+        <div className="w-full h-full bg-white rounded-md border border-slate-300 shadow p-1 flex flex-col justify-between select-none">
+          <div className={cn('flex justify-between items-center text-xs font-black', isRed ? 'text-rose-600' : 'text-slate-900')}>
+            <span>{card.rank}</span>
+            <SuitSvg suit={card.suit} size={11} />
+          </div>
+          <div className="flex items-center justify-center">
+            <SuitSvg suit={card.suit} size={20} />
+          </div>
+          <div className={cn('flex justify-between items-center text-xs font-black rotate-180', isRed ? 'text-rose-600' : 'text-slate-900')}>
+            <span>{card.rank}</span>
+            <SuitSvg suit={card.suit} size={11} />
+          </div>
+        </div>
+      )}
 
       {/* Trump Star Badge */}
       {isTrump && !faceDown && (
