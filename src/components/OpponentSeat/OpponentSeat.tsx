@@ -18,6 +18,7 @@ export interface OpponentSeatProps {
   totalCostUsd?: number;
   currencyCode?: CurrencyCode;
   compact?: boolean;
+  alignSpeech?: 'left' | 'center' | 'right';
   className?: string;
 }
 
@@ -32,6 +33,7 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
   totalCostUsd = 0,
   currencyCode = 'RUB',
   compact = false,
+  alignSpeech = 'center',
   className
 }) => {
   const profile = CHARACTER_PROFILES[player.config.style as CharacterStyle] || CHARACTER_PROFILES.nikolaich;
@@ -65,12 +67,29 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
         </div>
       )}
 
-      {/* Speech bubble positioned nicely below opponent card */}
+      {/* Speech bubble with edge-aware smart positioning */}
       {speechText && (
-        <div className="absolute top-full mt-1.5 z-40 w-max max-w-[150px] sm:max-w-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-950/95 text-amber-200 border border-amber-500/50 rounded-xl shadow-2xl text-[9px] sm:text-xs font-medium animate-in fade-in-0 zoom-in-95 backdrop-blur-md flex items-start gap-1 pointer-events-none">
+        <div
+          className={cn(
+            'absolute top-full mt-1.5 z-40 px-2 py-1 bg-slate-950/95 text-amber-200 border border-amber-500/50 rounded-xl shadow-2xl animate-in fade-in-0 zoom-in-95 backdrop-blur-md flex items-start gap-1 pointer-events-none',
+            'w-[155px] sm:w-[210px] md:w-[240px] max-w-[85vw]',
+            alignSpeech === 'left' && 'left-0 translate-x-0',
+            alignSpeech === 'right' && 'right-0 translate-x-0',
+            alignSpeech === 'center' && 'left-1/2 -translate-x-1/2'
+          )}
+        >
           <MessageSquareQuote className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 text-amber-400 mt-0.5" />
-          <span className="line-clamp-3 italic leading-snug">«{speechText}»</span>
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-950 border-l border-t border-amber-500/50 rotate-45" />
+          <span className="text-[8.5px] sm:text-[10px] md:text-[11px] italic leading-tight break-words line-clamp-4 sm:line-clamp-3">
+            «{speechText}»
+          </span>
+          <div
+            className={cn(
+              'absolute -top-1 w-2.5 h-2.5 bg-slate-950 border-l border-t border-amber-500/50 rotate-45',
+              alignSpeech === 'left' && 'left-6 translate-x-0',
+              alignSpeech === 'right' && 'right-6 translate-x-0',
+              alignSpeech === 'center' && 'left-1/2 -translate-x-1/2'
+            )}
+          />
         </div>
       )}
 

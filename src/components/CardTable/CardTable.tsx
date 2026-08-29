@@ -70,21 +70,33 @@ export const CardTable: React.FC<CardTableProps> = ({
           opponents.length >= 3 ? 'justify-between gap-1 sm:gap-2' : 'justify-around gap-2'
         )}
       >
-        {opponents.map(opp => (
-          <OpponentSeat
-            key={opp.id}
-            player={opp}
-            isAttacker={opp.index === state.attackerIndex}
-            isDefender={opp.index === state.defenderIndex}
-            isCurrentTurn={opp.index === activePlayerIndex}
-            isThinking={opp.index === thinkingPlayerIndex}
-            tokensPerSecond={opp.index === thinkingPlayerIndex ? tokensPerSecond : undefined}
-            speechText={speechBubbles[opp.index]}
-            totalCostUsd={playerCostsUsd[opp.config.id] || 0}
-            currencyCode={currencyCode}
-            compact={opponents.length >= 3}
-          />
-        ))}
+        {opponents.map((opp, oppIndex) => {
+          const alignSpeech =
+            opponents.length > 1
+              ? oppIndex === 0
+                ? 'left'
+                : oppIndex === opponents.length - 1
+                ? 'right'
+                : 'center'
+              : 'center';
+
+          return (
+            <OpponentSeat
+              key={opp.id}
+              player={opp}
+              isAttacker={opp.index === state.attackerIndex}
+              isDefender={opp.index === state.defenderIndex}
+              isCurrentTurn={opp.index === activePlayerIndex}
+              isThinking={opp.index === thinkingPlayerIndex}
+              tokensPerSecond={opp.index === thinkingPlayerIndex ? tokensPerSecond : undefined}
+              speechText={speechBubbles[opp.index]}
+              totalCostUsd={playerCostsUsd[opp.config.id] || 0}
+              currencyCode={currencyCode}
+              compact={opponents.length >= 3}
+              alignSpeech={alignSpeech}
+            />
+          );
+        })}
       </div>
 
       {/* Middle Center Section: Table Battle Ground & Deck/Discard (Shifted down for clear breathing room) */}
