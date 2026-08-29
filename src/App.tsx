@@ -657,8 +657,8 @@ export const App: React.FC = () => {
             🃏
           </div>
           <div className="flex items-center gap-1.5">
-            <h1 className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-100 flex items-center gap-1">
-              LLM ДУРАК <Badge variant="trump" className="text-[9px] py-0 px-1">ARENA</Badge>
+            <h1 className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-100 flex items-center">
+              LLM ДУРАК
             </h1>
           </div>
         </div>
