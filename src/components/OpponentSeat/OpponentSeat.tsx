@@ -67,9 +67,9 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
 
       {/* Speech bubble positioned nicely below opponent card */}
       {speechText && (
-        <div className="absolute top-full mt-1.5 z-40 w-max max-w-[130px] sm:max-w-xs px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-950/95 text-amber-200 border border-amber-500/50 rounded-xl shadow-2xl text-[9px] sm:text-xs font-medium animate-in fade-in-0 zoom-in-95 backdrop-blur-md flex items-start gap-1 pointer-events-none">
+        <div className="absolute top-full mt-1.5 z-40 w-max max-w-[150px] sm:max-w-sm px-2 py-0.5 sm:px-2.5 sm:py-1 bg-slate-950/95 text-amber-200 border border-amber-500/50 rounded-xl shadow-2xl text-[9px] sm:text-xs font-medium animate-in fade-in-0 zoom-in-95 backdrop-blur-md flex items-start gap-1 pointer-events-none">
           <MessageSquareQuote className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0 text-amber-400 mt-0.5" />
-          <span className="line-clamp-2 italic leading-tight">«{speechText}»</span>
+          <span className="line-clamp-3 italic leading-snug">«{speechText}»</span>
           <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-slate-950 border-l border-t border-amber-500/50 rotate-45" />
         </div>
       )}
