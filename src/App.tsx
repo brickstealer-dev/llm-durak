@@ -24,10 +24,10 @@ import { ThinkingSpoiler } from './components/Thinking/ThinkingSpoiler';
 import { MoveHistory } from './components/MoveHistory/MoveHistory';
 import { SettingsModal } from './components/SettingsModal/SettingsModal';
 import { GameOverModal } from './components/GameOverModal/GameOverModal';
-import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
+import { Badge } from './components/ui/badge';
 import { cn } from './lib/utils';
-import { Brain, Coins, History, Loader2, Mic, MicOff, Pause, Play, RefreshCw, Settings, Sparkles, Volume2, VolumeX, Zap } from 'lucide-react';
+import { Brain, Coins, History, Loader2, MessageSquareQuote, Mic, MicOff, Pause, Play, RefreshCw, Settings, Sparkles, Volume2, VolumeX, Zap } from 'lucide-react';
 
 const DEFAULT_PLAYERS: PlayerConfig[] = [
   {
@@ -533,6 +533,46 @@ export const App: React.FC = () => {
     }
   }, [gameState.phase, isGameOverOpen]);
 
+  // Player trash-talk comment state
+  const [humanTrashTalk, setHumanTrashTalk] = useState('');
+
+  const handleSendHumanComment = (customText?: string) => {
+    const text = (customText !== undefined ? customText : humanTrashTalk).trim();
+    if (!text) return;
+
+    const human = gameState.players[0];
+    const humanId = human?.config.id || 'player_human';
+    const humanName = human?.config.name || 'Кожаный мешок';
+
+    // 1. Show speech bubble over human player
+    setSpeechBubbles(prev => ({
+      ...prev,
+      [humanId]: text
+    }));
+
+    // 2. TTS Voice
+    if (isTtsEnabled) {
+      speechService.speak(text, human?.config.style || 'nikolaich');
+    }
+
+    // 3. Move History / LLM Context
+    const speechRecord: MoveLogItem = {
+      id: `speech_${Date.now()}`,
+      moveNumber: (moveHistory.length || 0) + 1,
+      roundNumber: 1,
+      playerIndex: 0,
+      playerName: humanName,
+      action: { type: 'PASS', playerIndex: 0 },
+      actionText: `💬 «${text}»`,
+      comment: text,
+      timestamp: Date.now()
+    };
+    setMoveHistory(prev => [...prev.slice(-25), speechRecord]);
+
+    // Clear input
+    setHumanTrashTalk('');
+  };
+
   // Human card click handler
   const handleSelectCard = (card: Card) => {
     if (isGameBusy) return;
@@ -550,6 +590,9 @@ export const App: React.FC = () => {
         sounds.playCardDrop();
         setGameState({ ...engineRef.current.getState() });
         setSelectedCard(null);
+        if (humanTrashTalk.trim()) {
+          handleSendHumanComment(humanTrashTalk);
+        }
       } else {
         sounds.playError();
         setStatusMessage(res.message || 'Нельзя сделать этот ход');
@@ -569,6 +612,9 @@ export const App: React.FC = () => {
             setGameState({ ...engineRef.current.getState() });
             setSelectedCard(null);
             setSelectedTablePairId(null);
+            if (humanTrashTalk.trim()) {
+              handleSendHumanComment(humanTrashTalk);
+            }
             return;
           }
         }
@@ -592,6 +638,9 @@ export const App: React.FC = () => {
           setGameState({ ...engineRef.current.getState() });
           setSelectedCard(null);
           setSelectedTablePairId(null);
+          if (humanTrashTalk.trim()) {
+            handleSendHumanComment(humanTrashTalk);
+          }
         } else {
           sounds.playError();
           setStatusMessage(res.message || 'Не удалось побить');
@@ -614,6 +663,9 @@ export const App: React.FC = () => {
           setGameState({ ...engineRef.current.getState() });
           setSelectedCard(null);
           setStatusMessage(`Подкинута карта ${formatCard(card)}`);
+          if (humanTrashTalk.trim()) {
+            handleSendHumanComment(humanTrashTalk);
+          }
         } else {
           sounds.playError();
           setStatusMessage(res.message || `Нельзя подкинуть карту!`);
@@ -639,6 +691,10 @@ export const App: React.FC = () => {
       setGameState({ ...nextState });
       setSelectedCard(null);
       setSelectedTablePairId(null);
+
+      if (humanTrashTalk.trim()) {
+        handleSendHumanComment(humanTrashTalk);
+      }
 
       if (nextState.phase === 'game_over') {
         handleGameOver(nextState);
@@ -905,6 +961,14 @@ export const App: React.FC = () => {
                   </Badge>
                 )}
               </div>
+
+              {/* Human Player Live Speech Bubble */}
+              {speechBubbles[humanPlayer?.config.id] && (
+                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10.5px] italic max-w-[280px] sm:max-w-md truncate shadow-sm animate-in fade-in-0 zoom-in-95">
+                  <MessageSquareQuote className="w-3 h-3 text-amber-400 shrink-0" />
+                  <span className="truncate">«{speechBubbles[humanPlayer.config.id]}»</span>
+                </div>
+              )}
             </div>
 
             <PlayerHand
@@ -931,6 +995,9 @@ export const App: React.FC = () => {
               isPaused={isPaused}
               onTogglePause={handleTogglePause}
               isGameBusy={isGameBusy}
+              playerComment={humanTrashTalk}
+              onPlayerCommentChange={setHumanTrashTalk}
+              onSendComment={handleSendHumanComment}
             />
           </div>
         </div>
