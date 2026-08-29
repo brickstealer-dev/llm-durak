@@ -48,8 +48,8 @@ export const GameControls: React.FC<GameControlsProps> = ({
           variant="outline"
           size="sm"
           onClick={onNewGame}
-          disabled={isGameBusy}
-          className="font-semibold text-xs border-slate-700 bg-slate-900/80 h-8"
+          className="font-semibold text-xs border-slate-700 bg-slate-900/80 h-8 hover:bg-amber-500/20 hover:text-amber-300 transition-colors"
+          title="Начать новую партию (прервать текущий раунд)"
         >
           <RefreshCw className="w-3.5 h-3.5 mr-1 text-amber-400" />
           <span>Новая игра</span>

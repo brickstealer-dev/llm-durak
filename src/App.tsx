@@ -711,9 +711,8 @@ export const App: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={startNewGame}
-            disabled={isGameBusy}
-            className="h-7 text-xs border-slate-700 bg-slate-900/80 px-2 sm:px-3"
-            title="Раздать карты на новый раунд (расходы сеанса сохраняются)"
+            className="h-7 text-xs border-slate-700 bg-slate-900/80 px-2 sm:px-3 hover:bg-amber-500/20 hover:text-amber-300 transition-colors"
+            title="Раздать карты на новый раунд (прервать текущий и начать заново)"
           >
             <RefreshCw className="w-3 h-3 mr-1 text-amber-400" />
             <span className="hidden sm:inline">Раздать</span>
