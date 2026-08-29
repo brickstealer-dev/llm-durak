@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
+  CharacterProfile,
   CharacterStyle,
   DurakMode,
   LlmProvider,
   PlayerConfig,
   PlayerType
 } from '../../types/durak';
+import { characterService } from '../../services/characterService';
 import { CHARACTER_PROFILES } from '../../services/prompts';
 import {
   Dialog,
@@ -17,6 +19,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { Switch } from '../ui/switch';
 import { Badge } from '../ui/badge';
 import { ModelCombobox } from '../ModelSelector/ModelCombobox';
@@ -29,7 +32,7 @@ import { currencyService, CurrencyCode } from '../../services/currencyService';
 import { speechService } from '../../services/speechService';
 import { PlayingCard } from '../Cards/PlayingCard';
 import { cn } from '../../lib/utils';
-import { Coins, Cpu, FastForward, Gauge, Globe, Loader2, Play, RefreshCw, Sparkles, Trash2, User, Users, Volume2, Zap } from 'lucide-react';
+import { Coins, Cpu, Edit3, FastForward, Gauge, Globe, Loader2, Play, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2, User, Users, Volume2, X, Zap } from 'lucide-react';
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -101,6 +104,85 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [currentRate, setCurrentRate] = useState<number>(currencyService.getRate(currencyCode || 'RUB'));
   const [isUpdatingRates, setIsUpdatingRates] = useState(false);
   const [rateUpdateMsg, setRateUpdateMsg] = useState('');
+
+  // Dynamic Characters State
+  const [charactersMap, setCharactersMap] = useState<Record<string, CharacterProfile>>(() => characterService.getCharacters());
+  const [editingCharacter, setEditingCharacter] = useState<CharacterProfile | null>(null);
+  const [isNewCharacter, setIsNewCharacter] = useState(false);
+
+  const handleOpenEditCharacter = (char: CharacterProfile, isNew = false) => {
+    setEditingCharacter({ ...char });
+    setIsNewCharacter(isNew);
+  };
+
+  const handleCreateNewCharacter = () => {
+    const newId = `custom_${Date.now()}`;
+    const newChar: CharacterProfile = {
+      id: newId,
+      name: 'Новый игрок',
+      avatar: '😎',
+      title: 'Карточный мастер',
+      description: 'Уникальный персонаж со своим характером и стилем игры.',
+      temperature: 0.7,
+      promptFlavor: `Твой стиль — дерзкий карточный игрок:
+- В рассуждениях (внутри <think>) анализируй карты на руках и ходы оппонентов.
+- В репликах комментируй каждый ход ярко, остроумно и в своем неповторимом стиле!
+- Держи козыри до конца и стремись оставить соперников в дураках.`,
+      isCustom: true
+    };
+    handleOpenEditCharacter(newChar, true);
+  };
+
+  const handleSaveEditedCharacter = () => {
+    if (!editingCharacter || !editingCharacter.name.trim()) return;
+    const finalId = editingCharacter.id.trim() || `custom_${Date.now()}`;
+    const toSave: CharacterProfile = {
+      ...editingCharacter,
+      id: finalId,
+      isCustom: true
+    };
+    characterService.saveCharacter(toSave);
+    const updatedMap = { ...characterService.getCharacters() };
+    setCharactersMap(updatedMap);
+
+    // Auto-update players if their character profile changed
+    setLocalPlayers(prev => prev.map(p => {
+      if (p.style === toSave.id) {
+        return {
+          ...p,
+          name: p.type === 'llm' ? toSave.name : p.name
+        };
+      }
+      return p;
+    }));
+
+    setEditingCharacter(null);
+    setIsNewCharacter(false);
+  };
+
+  const handleDeleteCharacter = (charId: string) => {
+    if (Object.keys(charactersMap).length <= 1) return;
+    characterService.deleteCharacter(charId);
+    const updatedMap = { ...characterService.getCharacters() };
+    setCharactersMap(updatedMap);
+
+    // Fallback to nikolaich if player had this deleted character
+    setLocalPlayers(prev => prev.map(p => {
+      if (p.style === charId) {
+        return {
+          ...p,
+          style: 'nikolaich',
+          name: p.type === 'llm' ? updatedMap.nikolaich?.name || 'Николаич (Батя Двора)' : p.name
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleResetCharacters = () => {
+    const fresh = characterService.resetToDefaults();
+    setCharactersMap({ ...fresh });
+  };
 
   // Update rate when currency changes
   useEffect(() => {
@@ -466,7 +548,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onChange={e => handlePlayerChange(idx, { style: e.target.value as CharacterStyle })}
                             className="h-8 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-xs text-slate-200"
                           >
-                            {Object.values(CHARACTER_PROFILES).map(cp => (
+                            {(Object.values(charactersMap) as CharacterProfile[]).map(cp => (
                               <option key={cp.id} value={cp.id}>
                                 {cp.avatar} {cp.name}
                               </option>
@@ -550,7 +632,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="mt-5 h-9 text-xs border-slate-700 shrink-0"
                 >
                   {isLoadingLm ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <RefreshCw className="w-3.5 h-3.5 mr-1 text-emerald-400" />}
-                  Запросить модели
+                  Обновить модели
                 </Button>
               </div>
 
@@ -563,10 +645,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
-                  <Globe className="w-4 h-4 text-amber-400" /> OpenRouter API (Облачные модели)
+                  <Globe className="w-4 h-4 text-sky-400" /> OpenRouter (Облачные модели)
                 </div>
                 {openRouterStatus === 'success' && (
-                  <Badge variant="trump" className="text-[10px]">
+                  <Badge variant="success" className="text-[10px]">
                     🟢 Готово ({openRouterModels.length} моделей)
                   </Badge>
                 )}
@@ -605,35 +687,244 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             </div>
           </TabsContent>
 
-          {/* Tab 3: Character Profiles */}
+          {/* Tab 3: Character Profiles (Create / Edit / Delete) */}
           <TabsContent value="characters" className="space-y-3 py-2">
-            {Object.values(CHARACTER_PROFILES).map(cp => (
-              <div
-                key={cp.id}
-                className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-start gap-3"
-              >
-                <span className="text-2xl sm:text-3xl shrink-0 p-2 rounded-xl bg-slate-900 border border-slate-700">
-                  {cp.avatar}
+            {/* Header with Add & Reset Actions */}
+            <div className="flex items-center justify-between gap-2 pb-1 border-b border-slate-800">
+              <div className="flex flex-col">
+                <span className="font-bold text-xs text-slate-200">
+                  Управление персонажами ({Object.keys(charactersMap).length})
                 </span>
-                <div className="flex-1 flex flex-col">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-sm text-slate-100">{cp.name}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => speechService.testVoice(cp.id as CharacterStyle)}
-                      className="h-6 text-[11px] border-slate-700 bg-slate-900 text-amber-300 flex items-center gap-1 hover:bg-slate-800 shrink-0"
-                      title="Прослушать голос персонажа через браузерный синтезатор"
-                    >
-                      <Volume2 className="w-3 h-3 text-amber-400" />
-                      Тест голоса
-                    </Button>
+                <span className="text-[10px] text-slate-400">
+                  Создавайте своих ботов, настраивайте характер и стиль трэштока
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleResetCharacters}
+                  className="h-7 text-xs border-slate-700 text-slate-400 hover:text-slate-200 px-2"
+                  title="Восстановить изначальных персонажей"
+                >
+                  <RotateCcw className="w-3 h-3 mr-1" />
+                  <span className="hidden sm:inline">Сброс</span>
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleCreateNewCharacter}
+                  className="h-7 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-2.5 shadow-md"
+                >
+                  <Plus className="w-3.5 h-3.5 mr-1" />
+                  <span>+ Создать</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Character Edit Form Modal / Panel */}
+            {editingCharacter && (
+              <div className="p-3.5 rounded-xl bg-slate-950 border border-amber-500/50 shadow-xl space-y-3 animate-in fade-in-0 zoom-in-95">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl p-1 rounded-lg bg-slate-900 border border-slate-700">
+                      {editingCharacter.avatar || '👤'}
+                    </span>
+                    <span className="font-bold text-sm text-amber-400">
+                      {isNewCharacter ? 'Создание нового персонажа' : `Редактирование: ${editingCharacter.name}`}
+                    </span>
                   </div>
-                  <span className="text-xs text-amber-400/90 font-medium">{cp.title}</span>
-                  <span className="text-xs text-slate-400 mt-1">{cp.description}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingCharacter(null)}
+                    className="h-7 w-7 p-0 text-slate-400 hover:text-slate-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                  {/* Avatar Picker */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Эмодзи аватар</label>
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        value={editingCharacter.avatar}
+                        onChange={e => setEditingCharacter({ ...editingCharacter, avatar: e.target.value })}
+                        className="h-8 text-center text-base w-14 font-emoji"
+                        maxLength={4}
+                      />
+                      <div className="flex items-center gap-0.5 overflow-x-auto p-1 bg-slate-900 rounded-md border border-slate-800 scrollbar-none flex-1">
+                        {['🍺', '🃏', '🎓', '🧢', '👵', '🐗', '🤖', '🤠', '🧙', '👑', '🐱', '🚀'].map(emoji => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => setEditingCharacter({ ...editingCharacter, avatar: emoji })}
+                            className="w-6 h-6 flex items-center justify-center text-xs hover:bg-slate-800 rounded transition-colors"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Name */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Имя персонажа</label>
+                    <Input
+                      value={editingCharacter.name}
+                      onChange={e => setEditingCharacter({ ...editingCharacter, name: e.target.value })}
+                      placeholder="Например: Дядя Миша"
+                      className="h-8 text-xs font-semibold"
+                    />
+                  </div>
+
+                  {/* Title */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 block mb-1">Титул / Роль</label>
+                    <Input
+                      value={editingCharacter.title}
+                      onChange={e => setEditingCharacter({ ...editingCharacter, title: e.target.value })}
+                      placeholder="Например: Смотрящий за двором"
+                      className="h-8 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">Краткое описание</label>
+                  <Input
+                    value={editingCharacter.description}
+                    onChange={e => setEditingCharacter({ ...editingCharacter, description: e.target.value })}
+                    placeholder="Пара слов о персонаже..."
+                    className="h-8 text-xs"
+                  />
+                </div>
+
+                {/* Temperature Slider */}
+                <div>
+                  <div className="flex items-center justify-between text-[11px] mb-1">
+                    <span className="text-slate-300 font-medium">Креативность (Temperature): {editingCharacter.temperature}</span>
+                    <span className="text-slate-500 text-[10px]">0.1 = точный расчет | 0.8+ = кураж и трэшток</span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0.0}
+                    max={1.0}
+                    step={0.05}
+                    value={editingCharacter.temperature}
+                    onChange={e => setEditingCharacter({ ...editingCharacter, temperature: parseFloat(e.target.value) })}
+                    className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  />
+                </div>
+
+                {/* Prompt Flavor (System Prompt instructions) */}
+                <div>
+                  <label className="text-[10px] text-slate-400 block mb-1">
+                    Инструкции характера и стиля игры (Промпт для LLM)
+                  </label>
+                  <Textarea
+                    value={editingCharacter.promptFlavor}
+                    onChange={e => setEditingCharacter({ ...editingCharacter, promptFlavor: e.target.value })}
+                    placeholder="Твой стиль — ... Опиши характер, любимые реплики, стратегию..."
+                    className="h-28 text-xs font-mono resize-none leading-relaxed"
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditingCharacter(null)}
+                    className="h-8 text-xs border-slate-700"
+                  >
+                    Отмена
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleSaveEditedCharacter}
+                    className="h-8 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-4"
+                  >
+                    <Save className="w-3.5 h-3.5 mr-1" />
+                    Сохранить персонажа
+                  </Button>
                 </div>
               </div>
-            ))}
+            )}
+
+            {/* List of Characters */}
+            <div className="space-y-2.5">
+              {(Object.values(charactersMap) as CharacterProfile[]).map(cp => (
+                <div
+                  key={cp.id}
+                  className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 flex items-start gap-3 hover:border-slate-700 transition-colors"
+                >
+                  <span className="text-2xl sm:text-3xl shrink-0 p-2 rounded-xl bg-slate-900 border border-slate-700 shadow-inner">
+                    {cp.avatar}
+                  </span>
+                  <div className="flex-1 flex flex-col min-w-0">
+                    <div className="flex items-center justify-between gap-1 flex-wrap">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="font-bold text-sm text-slate-100 truncate">{cp.name}</span>
+                        <Badge variant="outline" className="text-[9px] px-1 py-0 border-amber-500/30 text-amber-300 font-mono">
+                          T: {cp.temperature}
+                        </Badge>
+                        {cp.isCustom && (
+                          <Badge variant="default" className="text-[8px] px-1 py-0 bg-emerald-600/80 text-white font-bold">
+                            Свой
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenEditCharacter(cp)}
+                          className="h-6 px-2 text-[10px] border-slate-700 bg-slate-900 text-slate-300 hover:text-amber-300 flex items-center gap-0.5"
+                          title="Редактировать персонажа"
+                        >
+                          <Edit3 className="w-2.5 h-2.5" />
+                          <span>Изменить</span>
+                        </Button>
+
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => speechService.testVoice(cp.id as CharacterStyle)}
+                          className="h-6 px-2 text-[10px] border-slate-700 bg-slate-900 text-amber-300 flex items-center gap-0.5 hover:bg-slate-800"
+                          title="Прослушать голос"
+                        >
+                          <Volume2 className="w-2.5 h-2.5 text-amber-400" />
+                          <span className="hidden sm:inline">Голос</span>
+                        </Button>
+
+                        {Object.keys(charactersMap).length > 1 && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              if (confirm(`Удалить персонажа «${cp.name}»?`)) {
+                                handleDeleteCharacter(cp.id);
+                              }
+                            }}
+                            className="h-6 w-6 p-0 text-slate-500 hover:text-rose-400"
+                            title="Удалить персонажа"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-xs text-amber-400/90 font-medium truncate mt-0.5">{cp.title}</span>
+                    <span className="text-xs text-slate-400 mt-1 line-clamp-2">{cp.description}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
           </TabsContent>
 
           {/* Tab 4: Currency & Cost Settings */}

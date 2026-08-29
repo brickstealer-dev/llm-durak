@@ -38,16 +38,18 @@ export type CharacterStyle =
   | 'patsan'       // Пацанчик с района
   | 'baba_klava'   // Баба Нюра, ветеран преферанса
   | 'kaban'        // Вор в законе Кабан, авторитет
-  | 'stockfish';   // Робот-вычислитель
+  | 'stockfish'    // Робот-вычислитель
+  | (string & {});
 
 export interface CharacterProfile {
-  id: CharacterStyle;
+  id: string;
   name: string;
   avatar: string;
   title: string;
   description: string;
   temperature: number;
   promptFlavor: string;
+  isCustom?: boolean;
 }
 
 export interface PlayerConfig {
