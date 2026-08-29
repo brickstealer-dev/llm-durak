@@ -230,7 +230,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleAddPlayer = () => {
     if (localPlayers.length >= 4) return;
     const newIdx = localPlayers.length + 1;
-    const styles: CharacterStyle[] = ['shuler', 'professor', 'patsan', 'baba_klava'];
+    const styles: CharacterStyle[] = ['kaban', 'shuler', 'professor', 'patsan', 'baba_klava'];
     const style = styles[(newIdx - 1) % styles.length];
     const profile = CHARACTER_PROFILES[style];
 

@@ -36,7 +36,8 @@ export type CharacterStyle =
   | 'shuler'       // Семён Шулер, считает все карты
   | 'professor'    // Профессор тервера
   | 'patsan'       // Пацанчик с района
-  | 'baba_klava'   // Баба Клава, ветеран преферанса
+  | 'baba_klava'   // Баба Нюра, ветеран преферанса
+  | 'kaban'        // Вор в законе Кабан, авторитет
   | 'stockfish';   // Робот-вычислитель
 
 export interface CharacterProfile {
