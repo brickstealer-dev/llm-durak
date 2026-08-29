@@ -137,8 +137,8 @@ export const CardTable: React.FC<CardTableProps> = ({
                       isSelected && 'ring-4 ring-amber-400 rounded-xl scale-105 shadow-2xl z-30'
                     )}
                   >
-                    {/* Attack Card */}
-                    <div className="relative">
+                    {/* Attack Card (with dynamic throw animation) */}
+                    <div className="relative animate-card-throw">
                       <PlayingCard
                         card={pair.attackCard}
                         isTrump={isTrump}
@@ -147,9 +147,9 @@ export const CardTable: React.FC<CardTableProps> = ({
                       />
                     </div>
 
-                    {/* Defending / Covering Card on top */}
+                    {/* Defending / Covering Card on top (with dynamic slam/cover animation) */}
                     {pair.defendCard && (
-                      <div className="absolute -top-3 sm:-top-4 -right-3 sm:-right-4 z-20">
+                      <div className="absolute -top-3 sm:-top-4 -right-3 sm:-right-4 z-20 animate-card-defend-slam">
                         <PlayingCard
                           card={pair.defendCard}
                           isTrump={pair.defendCard.suit === trumpSuit}

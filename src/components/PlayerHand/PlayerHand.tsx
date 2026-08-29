@@ -83,7 +83,7 @@ export const PlayerHand: React.FC<PlayerHandProps> = ({
                   zIndex: isSelected ? 50 : index + 1
                 }}
                 className={cn(
-                  'transition-all duration-200 ease-out origin-bottom transform-gpu shrink-0',
+                  'transition-all duration-200 ease-out origin-bottom transform-gpu shrink-0 animate-card-deal-in',
                   isSelected && '-translate-y-3.5 sm:-translate-y-4 scale-105',
                   !isSelected && isPlayable && isMyTurn && 'hover:-translate-y-2 hover:scale-102 hover:z-40'
                 )}
