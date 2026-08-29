@@ -32,7 +32,7 @@ import { currencyService, CurrencyCode } from '../../services/currencyService';
 import { speechService } from '../../services/speechService';
 import { PlayingCard } from '../Cards/PlayingCard';
 import { cn } from '../../lib/utils';
-import { Coins, Cpu, Edit3, FastForward, Gauge, Globe, Loader2, Play, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2, User, Users, Volume2, X, Zap } from 'lucide-react';
+import { Coins, Cpu, Edit3, FastForward, Gauge, Globe, Loader2, Play, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2, User, Users, Volume2, Wand2, X, Zap } from 'lucide-react';
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -110,24 +110,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [editingCharacter, setEditingCharacter] = useState<CharacterProfile | null>(null);
   const [isNewCharacter, setIsNewCharacter] = useState(false);
 
+  const [isGeneratingAiCharacter, setIsGeneratingAiCharacter] = useState(false);
+
   const handleOpenEditCharacter = (char: CharacterProfile, isNew = false) => {
     setEditingCharacter({ ...char });
     setIsNewCharacter(isNew);
+  };
+
+  const handleGenerateWithAi = async () => {
+    if (!editingCharacter) return;
+    setIsGeneratingAiCharacter(true);
+
+    try {
+      const activePlayer = localPlayers.find(p => p.type === 'llm');
+      const generated = await characterService.generateCharacterWithAi({
+        currentName: editingCharacter.name === 'Новый игрок' ? '' : editingCharacter.name,
+        currentAvatar: editingCharacter.avatar === '😎' ? '' : editingCharacter.avatar,
+        currentTitle: editingCharacter.title === 'Карточный мастер' ? '' : editingCharacter.title,
+        currentDescription: editingCharacter.description,
+        currentPrompt: editingCharacter.promptFlavor,
+        lmStudioBaseUrl: localLmUrl,
+        openRouterApiKey: localApiKey,
+        provider: activePlayer?.provider || 'lmstudio',
+        modelId: activePlayer?.modelId
+      });
+
+      setEditingCharacter({
+        ...editingCharacter,
+        name: generated.name,
+        avatar: generated.avatar,
+        title: generated.title,
+        description: generated.description,
+        temperature: generated.temperature,
+        promptFlavor: generated.promptFlavor
+      });
+    } catch (e: any) {
+      console.error('[SettingsModal] AI Generation failed:', e);
+      alert(`⚠️ Не удалось сгенерировать персонажа через LLM:\n${e?.message || e}\n\nУбедитесь, что локальный сервер LM Studio запущен (порт 1234) или во вкладке «Модели» указан верный ключ OpenRouter.`);
+    } finally {
+      setIsGeneratingAiCharacter(false);
+    }
   };
 
   const handleCreateNewCharacter = () => {
     const newId = `custom_${Date.now()}`;
     const newChar: CharacterProfile = {
       id: newId,
-      name: 'Новый игрок',
+      name: '',
       avatar: '😎',
-      title: 'Карточный мастер',
-      description: 'Уникальный персонаж со своим характером и стилем игры.',
+      title: '',
+      description: '',
       temperature: 0.7,
-      promptFlavor: `Твой стиль — дерзкий карточный игрок:
-- В рассуждениях (внутри <think>) анализируй карты на руках и ходы оппонентов.
-- В репликах комментируй каждый ход ярко, остроумно и в своем неповторимом стиле!
-- Держи козыри до конца и стремись оставить соперников в дураках.`,
+      promptFlavor: '',
       isCustom: true
     };
     handleOpenEditCharacter(newChar, true);
@@ -711,6 +745,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   <span className="hidden sm:inline">Сброс</span>
                 </Button>
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const newId = `custom_${Date.now()}`;
+                    const newChar: CharacterProfile = {
+                      id: newId,
+                      name: '',
+                      avatar: '🎭',
+                      title: '',
+                      description: '',
+                      temperature: 0.7,
+                      promptFlavor: '',
+                      isCustom: true
+                    };
+                    handleOpenEditCharacter(newChar, true);
+                    setTimeout(() => handleGenerateWithAi(), 50);
+                  }}
+                  className="h-7 text-xs border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold px-2 flex items-center gap-1 shadow-sm"
+                  title="Сгенерировать случайного колоритного персонажа через ИИ"
+                >
+                  <Wand2 className="w-3 h-3 text-amber-400" />
+                  <span>✨ ИИ Герой</span>
+                </Button>
+                <Button
                   variant="default"
                   size="sm"
                   onClick={handleCreateNewCharacter}
@@ -725,23 +783,43 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Character Edit Form Modal / Panel */}
             {editingCharacter && (
               <div className="p-3.5 rounded-xl bg-slate-950 border border-amber-500/50 shadow-xl space-y-3 animate-in fade-in-0 zoom-in-95">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2 flex-wrap gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xl p-1 rounded-lg bg-slate-900 border border-slate-700">
+                    <span className="text-xl p-1 rounded-lg bg-slate-900 border border-slate-700 shadow-inner">
                       {editingCharacter.avatar || '👤'}
                     </span>
                     <span className="font-bold text-sm text-amber-400">
-                      {isNewCharacter ? 'Создание нового персонажа' : `Редактирование: ${editingCharacter.name}`}
+                      {isNewCharacter ? 'Создание нового персонажа' : `Редактирование: ${editingCharacter.name || 'Без имени'}`}
                     </span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setEditingCharacter(null)}
-                    className="h-7 w-7 p-0 text-slate-400 hover:text-slate-100"
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <div className="flex items-center gap-1.5">
+                    {/* Magic Wand Button */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGenerateWithAi}
+                      disabled={isGeneratingAiCharacter}
+                      className="h-7 text-xs bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-sky-500/20 hover:from-amber-500/30 hover:via-purple-500/30 hover:to-sky-500/30 border-amber-500/50 text-amber-300 font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
+                      title="ИИ дополнит или сгенерирует имя, аватар, титул и характер персонажа!"
+                    >
+                      {isGeneratingAiCharacter ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                      ) : (
+                        <Wand2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                      )}
+                      <span>{isGeneratingAiCharacter ? 'ИИ придумывает...' : '✨ Волшебная палочка (ИИ)'}</span>
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditingCharacter(null)}
+                      className="h-7 w-7 p-0 text-slate-400 hover:text-slate-100"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">

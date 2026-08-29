@@ -154,6 +154,119 @@ class CharacterService {
     }
     return this.cache;
   }
+
+  /**
+   * Generates or completes a character profile strictly using connected LLM (LM Studio / OpenRouter)
+   */
+  public async generateCharacterWithAi(params: {
+    currentName?: string;
+    currentAvatar?: string;
+    currentTitle?: string;
+    currentDescription?: string;
+    currentPrompt?: string;
+    lmStudioBaseUrl?: string;
+    openRouterApiKey?: string;
+    provider?: 'lmstudio' | 'openrouter';
+    modelId?: string;
+  }): Promise<CharacterProfile> {
+    const {
+      currentName = '',
+      currentAvatar = '',
+      currentTitle = '',
+      currentDescription = '',
+      currentPrompt = '',
+      lmStudioBaseUrl = 'http://localhost:1234/v1',
+      openRouterApiKey = '',
+      provider = 'lmstudio',
+      modelId
+    } = params;
+
+    const systemPrompt = `Ты — профессиональный сценарист и геймдизайнер карточных игр.
+Твоя задача — сгенерировать яркого, колоритного и харизматичного персонажа для игры в «Дурака».
+Верни ТОЛЬКО чистый валидный JSON-объект без markdown-разметки и без тройных кавычек:
+{
+  "avatar": "один подходящий эмодзи",
+  "name": "Имя персонажа",
+  "title": "Титул или короткая роль (до 40 символов)",
+  "description": "Краткое остроумное описание характера в 1-2 предложениях",
+  "temperature": 0.75,
+  "promptFlavor": "Твой стиль — ... (подробный промпт характера, манера речи, сочный трэшток, фирменные фразочки, стиль рассуждений и тактика в дурака)"
+}`;
+
+    const userPrompt = `Создай персонажа для карточной игры Дурак на основе этих данных (дополни или придумай недостающее):
+- Имя: "${currentName}"
+- Аватар: "${currentAvatar}"
+- Титул: "${currentTitle}"
+- Описание: "${currentDescription}"
+- Стиль / Промпт: "${currentPrompt}"
+
+Если поля пустые, придумай совершенно нового уникального, смешного или колоритного персонажа.`;
+
+    let endpoint = '';
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    let bodyModel = modelId || 'default';
+
+    if (provider === 'openrouter') {
+      if (!openRouterApiKey) {
+        throw new Error('Укажите API Key для OpenRouter в настройках (вкладка «Модели нейросетей»)');
+      }
+      endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+      headers['Authorization'] = `Bearer ${openRouterApiKey}`;
+      headers['HTTP-Referer'] = window.location.origin;
+      headers['X-Title'] = 'LLM Durak Character Generator';
+      if (!modelId || modelId === 'mock-ai' || modelId === 'default' || modelId === 'auto') {
+        bodyModel = 'google/gemini-2.0-flash-001';
+      }
+    } else {
+      const cleanBase = (lmStudioBaseUrl || 'http://localhost:1234/v1').replace(/\/+$/, '');
+      endpoint = `${cleanBase}/chat/completions`;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: bodyModel,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.8,
+        max_tokens: 1000
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Ошибка от LLM сервера (${response.status}): ${errorText || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    // Extract JSON from response even if surrounded by thoughts or markdown
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Нейросеть вернула невалидный формат ответа. Попробуйте еще раз.');
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+
+    if (!parsed || !parsed.name) {
+      throw new Error('Не удалось разобрать профиль персонажа из ответа LLM');
+    }
+
+    return {
+      id: `custom_${Date.now()}`,
+      name: parsed.name || currentName || 'Новый герой',
+      avatar: parsed.avatar || currentAvatar || '🎭',
+      title: parsed.title || currentTitle || 'Карточный игрок',
+      description: parsed.description || currentDescription || 'Уникальный персонаж',
+      temperature: typeof parsed.temperature === 'number' ? Math.min(Math.max(parsed.temperature, 0.1), 1.0) : 0.75,
+      promptFlavor: parsed.promptFlavor || currentPrompt || 'Твой стиль — дерзкий игрок в дурака.',
+      isCustom: true
+    };
+  }
 }
 
 export const characterService = new CharacterService();
