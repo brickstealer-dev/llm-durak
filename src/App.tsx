@@ -27,7 +27,7 @@ import { GameOverModal } from './components/GameOverModal/GameOverModal';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { cn } from './lib/utils';
-import { Brain, Coins, History, Pause, Play, RefreshCw, Settings, Sparkles, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
+import { Brain, Coins, History, Loader2, Mic, MicOff, Pause, Play, RefreshCw, Settings, Sparkles, Volume2, VolumeX, Zap } from 'lucide-react';
 
 const DEFAULT_PLAYERS: PlayerConfig[] = [
   {
@@ -874,6 +874,22 @@ export const App: React.FC = () => {
                         ? 'LM Studio'
                         : 'OpenRouter'}
                     </Badge>
+                    <span
+                      className={cn(
+                        'text-[8.5px] font-mono font-bold px-1.5 py-0 rounded border flex items-center gap-0.5 shrink-0',
+                        humanPlayer.config.provider === 'lmstudio'
+                          ? 'text-slate-400 bg-slate-800/80 border-slate-700/50'
+                          : 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+                      )}
+                    >
+                      💸 {currencyService.formatCost(playerCostsUsd[humanPlayer.config.id] || 0, currencyCode)}
+                    </span>
+                    {thinkingPlayerIndex === humanPlayer.index && (
+                      <span className="text-[8.5px] font-mono text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1 rounded animate-pulse">
+                        <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-400" />
+                        {tokensPerSecond > 0 ? `${tokensPerSecond.toFixed(1)} т/с` : 'Думает...'}
+                      </span>
+                    )}
                   </>
                 ) : (
                   <span className="font-bold text-slate-200">👤 {humanPlayer?.config.name}</span>
