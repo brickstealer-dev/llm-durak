@@ -101,37 +101,37 @@ export const CardTable: React.FC<CardTableProps> = ({
 
       {/* Middle Center Section: Table Battle Ground & Deck/Discard */}
       <div className="relative z-10 w-full flex-1 min-h-0 flex items-center justify-between gap-1 sm:gap-3 px-0.5 sm:px-2 mt-2 sm:mt-5 mb-1 overflow-hidden">
-        {/* Left Side: Deck & Trump Card */}
-        <div className="relative flex items-center justify-center shrink-0 w-20 sm:w-28 md:w-32 h-20 sm:h-28 ml-0.5 sm:ml-1">
+        {/* Left Side: Deck & Trump Card (Compact and positioned with safe margin from table border) */}
+        <div className="relative flex items-center justify-center shrink-0 w-16 sm:w-20 md:w-24 h-16 sm:h-22 ml-2 sm:ml-4">
           {state.trumpCard && (
-            <div className="relative flex items-center justify-center">
-              {/* Trump Card lying face up perpendicular under deck, extending comfortably towards center */}
-              <div className="absolute rotate-90 shadow-2xl -left-2.5 sm:-left-3.5 z-0 origin-center">
+            <div className="relative flex items-center justify-center scale-90 sm:scale-100 origin-center">
+              {/* Trump Card lying face up perpendicular under deck */}
+              <div className="absolute rotate-90 shadow-2xl -left-1 sm:-left-2 z-0 origin-center">
                 <PlayingCard
                   card={state.trumpCard}
                   isTrump
-                  size="md"
+                  size="sm"
                   disabled
                 />
               </div>
 
               {/* Remaining Deck stack on top */}
               {state.deck.length > 0 && (
-                <div className={cn("relative z-10 transition-transform", isDrawing && "animate-deck-recoil")}>
+                <div className={cn("relative z-10 transition-transform ml-3 sm:ml-4", isDrawing && "animate-deck-recoil")}>
                   {/* Flying ghost card escaping from deck */}
                   {isDrawing && (
                     <div className="absolute inset-0 z-30 pointer-events-none animate-fly-off-deck">
-                      <PlayingCard faceDown disabled size="md" />
+                      <PlayingCard faceDown disabled size="sm" />
                     </div>
                   )}
 
                   <PlayingCard
                     faceDown
                     disabled
-                    size="md"
+                    size="sm"
                   />
-                  <div className="absolute -top-2.5 -right-2.5 z-30 bg-slate-950/95 text-amber-300 border border-amber-400/60 text-xs sm:text-sm font-black px-2 py-0.5 rounded-full shadow-xl flex items-center gap-1">
-                    <Layers className="w-3.5 h-3.5 text-amber-400" />
+                  <div className="absolute -top-2 -right-2 z-30 bg-slate-950/95 text-amber-300 border border-amber-400/60 text-[9px] sm:text-xs font-black px-1.5 py-0.2 rounded-full shadow-xl flex items-center gap-0.5">
+                    <Layers className="w-3 h-3 text-amber-400" />
                     {state.deck.length}
                   </div>
                 </div>
@@ -139,7 +139,7 @@ export const CardTable: React.FC<CardTableProps> = ({
 
               {/* If deck is empty, show badge that deck is out */}
               {state.deck.length === 0 && (
-                <div className="relative z-10 bg-slate-950/80 border border-amber-500/40 text-amber-300 text-[10px] sm:text-xs font-bold px-2 py-1 rounded shadow">
+                <div className="relative z-10 bg-slate-950/90 border border-amber-500/50 text-amber-300 text-[9px] sm:text-[10px] font-bold px-1.5 py-0.5 rounded-lg shadow-lg">
                   Колода пуста
                 </div>
               )}
