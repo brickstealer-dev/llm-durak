@@ -85,20 +85,20 @@
   background: rgba(100, 116, 139, 0.8);
 }
 
-/* Card Throwing & Slap Animations */
-@keyframes card-throw {
+/* Directional Card Throw from Human (bottom-up out of hand into table) */
+@keyframes card-throw-from-human {
   0% {
     opacity: 0;
-    transform: translateY(-38px) scale(1.22) rotate(-8deg);
-    filter: drop-shadow(0 25px 25px rgba(0, 0, 0, 0.7));
+    transform: translateY(80px) scale(0.75) rotate(14deg);
+    filter: drop-shadow(0 35px 30px rgba(0, 0, 0, 0.85));
   }
   60% {
     opacity: 1;
-    transform: translateY(3px) scale(0.97) rotate(0deg);
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+    transform: translateY(-5px) scale(1.05) rotate(-2deg);
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.4));
   }
   85% {
-    transform: translateY(-1px) scale(1.01) rotate(0deg);
+    transform: translateY(1px) scale(0.99) rotate(0.5deg);
   }
   100% {
     opacity: 1;
@@ -107,19 +107,64 @@
   }
 }
 
-@keyframes card-defend-slam {
+/* Directional Card Throw from Opponent (top-down out of opponent seat into table) */
+@keyframes card-throw-from-opponent {
   0% {
     opacity: 0;
-    transform: translate(16px, -34px) scale(1.28) rotate(14deg);
-    filter: drop-shadow(0 30px 30px rgba(0, 0, 0, 0.8));
+    transform: translateY(-80px) scale(0.75) rotate(-14deg);
+    filter: drop-shadow(0 35px 30px rgba(0, 0, 0, 0.85));
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(5px) scale(1.05) rotate(2deg);
+    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.4));
+  }
+  85% {
+    transform: translateY(-1px) scale(0.99) rotate(-0.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.45));
+  }
+}
+
+/* Directional Card Defend Slam from Human (bottom-up slap onto attack card) */
+@keyframes card-defend-from-human {
+  0% {
+    opacity: 0;
+    transform: translate(22px, 75px) scale(0.75) rotate(-12deg);
+    filter: drop-shadow(0 40px 35px rgba(0, 0, 0, 0.9));
   }
   65% {
     opacity: 1;
-    transform: translate(6px, 10px) scale(0.96) rotate(5deg);
-    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+    transform: translate(6px, 11px) scale(1.08) rotate(8deg);
+    filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
   }
   85% {
-    transform: translate(6px, 7px) scale(1.02) rotate(6.5deg);
+    transform: translate(6px, 7px) scale(0.98) rotate(5.5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(6px, 8px) scale(1) rotate(6deg);
+    filter: drop-shadow(0 14px 20px rgba(0, 0, 0, 0.5));
+  }
+}
+
+/* Directional Card Defend Slam from Opponent (top-down slap onto attack card) */
+@keyframes card-defend-from-opponent {
+  0% {
+    opacity: 0;
+    transform: translate(16px, -75px) scale(0.75) rotate(18deg);
+    filter: drop-shadow(0 40px 35px rgba(0, 0, 0, 0.9));
+  }
+  65% {
+    opacity: 1;
+    transform: translate(6px, 11px) scale(1.08) rotate(4deg);
+    filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
+  }
+  85% {
+    transform: translate(6px, 7px) scale(0.98) rotate(6.5deg);
   }
   100% {
     opacity: 1;
@@ -131,11 +176,11 @@
 @keyframes card-deal-in {
   0% {
     opacity: 0;
-    transform: translate(-35px, -25px) scale(0.8) rotate(-12deg);
+    transform: translate(-45px, -35px) scale(0.75) rotate(-16deg);
   }
   65% {
     opacity: 1;
-    transform: translate(2px, 2px) scale(1.02) rotate(1deg);
+    transform: translate(2px, 2px) scale(1.03) rotate(1deg);
   }
   100% {
     opacity: 1;
@@ -169,16 +214,24 @@
   100% { transform: scale(1) translateY(0); }
 }
 
-.animate-card-throw {
-  animation: card-throw 0.32s cubic-bezier(0.18, 0.9, 0.32, 1.1) forwards;
+.animate-card-throw-human {
+  animation: card-throw-from-human 0.36s cubic-bezier(0.16, 0.9, 0.28, 1.15) forwards;
 }
 
-.animate-card-defend-slam {
-  animation: card-defend-slam 0.35s cubic-bezier(0.15, 0.85, 0.35, 1.15) forwards;
+.animate-card-throw-opponent {
+  animation: card-throw-from-opponent 0.36s cubic-bezier(0.16, 0.9, 0.28, 1.15) forwards;
+}
+
+.animate-card-defend-human {
+  animation: card-defend-from-human 0.38s cubic-bezier(0.15, 0.85, 0.35, 1.15) forwards;
+}
+
+.animate-card-defend-opponent {
+  animation: card-defend-from-opponent 0.38s cubic-bezier(0.15, 0.85, 0.35, 1.15) forwards;
 }
 
 .animate-card-deal-in {
-  animation: card-deal-in 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: card-deal-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fly-off-deck {

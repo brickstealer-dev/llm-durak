@@ -169,8 +169,11 @@ export const CardTable: React.FC<CardTableProps> = ({
                       isSelected && 'ring-4 ring-amber-400 rounded-xl scale-105 shadow-2xl z-40'
                     )}
                   >
-                    {/* Attack Card (with dynamic throw animation) */}
-                    <div className="relative animate-card-throw">
+                    {/* Attack Card (with dynamic throw animation out of human hand or opponent seat) */}
+                    <div className={cn(
+                      'relative',
+                      state.attackerIndex === 0 ? 'animate-card-throw-human' : 'animate-card-throw-opponent'
+                    )}>
                       <PlayingCard
                         card={pair.attackCard}
                         isTrump={isTrump}
@@ -179,11 +182,12 @@ export const CardTable: React.FC<CardTableProps> = ({
                       />
                     </div>
 
-                    {/* Defending / Covering Card on top (with dynamic slam/cover animation) */}
+                    {/* Defending / Covering Card on top (with directional slam out of hand) */}
                     {pair.defendCard && (
                       <div className={cn(
-                        'absolute z-20 animate-card-defend-slam',
-                        isDense ? '-top-2.5 -right-2.5 sm:-top-3.5 sm:-right-3.5' : '-top-3 sm:-top-4 -right-3 sm:-right-4'
+                        'absolute z-20',
+                        isDense ? '-top-2.5 -right-2.5 sm:-top-3.5 sm:-right-3.5' : '-top-3 sm:-top-4 -right-3 sm:-right-4',
+                        state.defenderIndex === 0 ? 'animate-card-defend-human' : 'animate-card-defend-opponent'
                       )}>
                         <PlayingCard
                           card={pair.defendCard}
