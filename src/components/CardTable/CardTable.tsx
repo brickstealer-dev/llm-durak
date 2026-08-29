@@ -99,14 +99,14 @@ export const CardTable: React.FC<CardTableProps> = ({
         })}
       </div>
 
-      {/* Middle Center Section: Table Battle Ground & Deck/Discard (Shifted down for clear breathing room) */}
-      <div className="relative z-10 w-full flex-1 min-h-0 flex items-center justify-between gap-2 sm:gap-4 px-1 sm:px-4 mt-3 sm:mt-6 md:mt-7 mb-1 sm:mb-2 overflow-hidden">
+      {/* Middle Center Section: Table Battle Ground & Deck/Discard */}
+      <div className="relative z-10 w-full flex-1 min-h-0 flex items-center justify-between gap-1 sm:gap-3 px-0.5 sm:px-2 mt-2 sm:mt-5 mb-1 overflow-hidden">
         {/* Left Side: Deck & Trump Card */}
-        <div className="relative flex items-center justify-center shrink-0 w-28 sm:w-36 md:w-40 h-24 sm:h-32 ml-1 sm:ml-3">
+        <div className="relative flex items-center justify-center shrink-0 w-20 sm:w-28 md:w-32 h-20 sm:h-28 ml-0.5 sm:ml-1">
           {state.trumpCard && (
             <div className="relative flex items-center justify-center">
               {/* Trump Card lying face up perpendicular under deck, extending comfortably towards center */}
-              <div className="absolute rotate-90 shadow-2xl -left-3 sm:-left-4 z-0 origin-center">
+              <div className="absolute rotate-90 shadow-2xl -left-2.5 sm:-left-3.5 z-0 origin-center">
                 <PlayingCard
                   card={state.trumpCard}
                   isTrump
@@ -147,8 +147,8 @@ export const CardTable: React.FC<CardTableProps> = ({
           )}
         </div>
 
-        {/* Center: Active Cards on Table (Battle Field with Dynamic Density & Scaling) */}
-        <div className="flex-1 min-h-0 h-full flex items-center justify-center px-1 overflow-x-auto no-scrollbar max-w-full">
+        {/* Center: Active Cards on Table (Battle Field with Ultra Dense Packing) */}
+        <div className="flex-1 min-h-0 h-full flex items-center justify-center px-0.5 overflow-hidden max-w-full">
           {state.table.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center text-emerald-300/40 border border-dashed border-emerald-500/20 rounded-xl p-3 sm:p-4 max-w-xs">
               <span className="text-xl sm:text-2xl mb-0.5">🃏</span>
@@ -158,11 +158,11 @@ export const CardTable: React.FC<CardTableProps> = ({
             <div
               className={cn(
                 'flex items-center justify-center py-1 transition-all duration-300 origin-center select-none',
-                state.table.length <= 2 && 'gap-3 sm:gap-6 scale-100',
-                state.table.length === 3 && 'gap-2 sm:gap-4 scale-100',
-                state.table.length === 4 && 'gap-1 sm:gap-2.5 scale-95 sm:scale-100',
-                state.table.length === 5 && '-space-x-3 sm:-space-x-1 scale-90 sm:scale-95',
-                state.table.length >= 6 && '-space-x-5 sm:-space-x-2 scale-80 sm:scale-90'
+                state.table.length <= 2 && 'gap-2 sm:gap-4 scale-100',
+                state.table.length === 3 && '-space-x-2 sm:space-x-1 scale-95 sm:scale-100',
+                state.table.length === 4 && '-space-x-5 sm:-space-x-3 scale-90 sm:scale-95',
+                state.table.length === 5 && '-space-x-8 sm:-space-x-6 scale-80 sm:scale-88',
+                state.table.length >= 6 && '-space-x-10 sm:-space-x-8 scale-75 sm:scale-82'
               )}
             >
               {state.table.map((pair, idx) => {
