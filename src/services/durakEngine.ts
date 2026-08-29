@@ -90,6 +90,16 @@ export class DurakEngine {
     this.state = this.initGame(playersConfig, mode);
   }
 
+  public static fromState(state: GameState): DurakEngine {
+    const engine = Object.create(DurakEngine.prototype) as DurakEngine;
+    engine.state = JSON.parse(JSON.stringify(state));
+    return engine;
+  }
+
+  public setState(state: GameState): void {
+    this.state = JSON.parse(JSON.stringify(state));
+  }
+
   public getState(): GameState {
     return this.state;
   }

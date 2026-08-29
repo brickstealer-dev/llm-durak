@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   Card,
   CharacterStyle,
@@ -100,9 +100,34 @@ export const App: React.FC = () => {
   });
   const [currentMoveCostUsd, setCurrentMoveCostUsd] = useState<number>(0);
 
-  // Engine instance & state initialized with saved players
-  const engineRef = useRef<DurakEngine>(new DurakEngine(initialPlayers, initialMode));
-  const [gameState, setGameState] = useState<GameState>(() => engineRef.current.getState());
+  // Engine instance & state with full persistence restoration
+  const savedStateJson = useMemo(() => {
+    try {
+      return localStorage.getItem('durak_saved_state');
+    } catch {}
+    return null;
+  }, []);
+
+  const restoredState = useMemo<GameState | null>(() => {
+    if (!savedStateJson) return null;
+    try {
+      const parsed = JSON.parse(savedStateJson);
+      if (parsed && parsed.players && parsed.players.length > 0 && parsed.deck) {
+        return parsed;
+      }
+    } catch {}
+    return null;
+  }, [savedStateJson]);
+
+  const engineRef = useRef<DurakEngine>(
+    restoredState
+      ? DurakEngine.fromState(restoredState)
+      : new DurakEngine(initialPlayers, initialMode)
+  );
+
+  const [gameState, setGameState] = useState<GameState>(
+    () => restoredState || engineRef.current.getState()
+  );
 
   // Interactive selection state
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
@@ -115,9 +140,30 @@ export const App: React.FC = () => {
   const [isStreamingThinking, setIsStreamingThinking] = useState(false);
   const [tokensPerSecond, setTokensPerSecond] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
-  const [speechBubbles, setSpeechBubbles] = useState<Record<number, string>>({});
-  const [moveHistory, setMoveHistory] = useState<MoveLogItem[]>([]);
-  const [statusMessage, setStatusMessage] = useState('Раздача карт...');
+
+  const [speechBubbles, setSpeechBubbles] = useState<Record<number, string>>(() => {
+    try {
+      const saved = localStorage.getItem('durak_saved_speech');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  const [moveHistory, setMoveHistory] = useState<MoveLogItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('durak_saved_history');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const [statusMessage, setStatusMessage] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem('durak_saved_status');
+      if (saved) return saved;
+    } catch {}
+    return 'Игра готова к продолжению';
+  });
 
   // UI state
   const [isMuted, setIsMuted] = useState(false);
@@ -137,6 +183,18 @@ export const App: React.FC = () => {
   const [mobileTab, setMobileTab] = useState<'game' | 'thinking' | 'history'>('game');
 
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Auto-save game state on every change so F5 preserves the full game seamlessly
+  useEffect(() => {
+    try {
+      if (gameState) {
+        localStorage.setItem('durak_saved_state', JSON.stringify(gameState));
+        localStorage.setItem('durak_saved_history', JSON.stringify(moveHistory));
+        localStorage.setItem('durak_saved_speech', JSON.stringify(speechBubbles));
+        localStorage.setItem('durak_saved_status', statusMessage);
+      }
+    } catch {}
+  }, [gameState, moveHistory, speechBubbles, statusMessage]);
 
   // Sync speech service & animation speed initial state
   useEffect(() => {
@@ -196,6 +254,13 @@ export const App: React.FC = () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
+    try {
+      localStorage.removeItem('durak_saved_state');
+      localStorage.removeItem('durak_saved_history');
+      localStorage.removeItem('durak_saved_speech');
+      localStorage.removeItem('durak_saved_status');
+    } catch {}
+
     const newEngine = new DurakEngine(playersConfig, mode);
     engineRef.current = newEngine;
     const freshState = newEngine.getState();
