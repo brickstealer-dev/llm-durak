@@ -112,6 +112,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   const [isGeneratingAiCharacter, setIsGeneratingAiCharacter] = useState(false);
 
+  // AI Generator provider & model selection
+  const [aiGenProvider, setAiGenProvider] = useState<LlmProvider>(() => {
+    try {
+      return (localStorage.getItem('durak_ai_gen_provider') as LlmProvider) || 'lmstudio';
+    } catch {
+      return 'lmstudio';
+    }
+  });
+  const [aiGenModelId, setAiGenModelId] = useState<string>(() => {
+    try {
+      return localStorage.getItem('durak_ai_gen_model') || 'auto';
+    } catch {
+      return 'auto';
+    }
+  });
+
+  const handleSetAiGenProvider = (p: LlmProvider) => {
+    setAiGenProvider(p);
+    try {
+      localStorage.setItem('durak_ai_gen_provider', p);
+    } catch {}
+  };
+
+  const handleSetAiGenModelId = (m: string) => {
+    setAiGenModelId(m);
+    try {
+      localStorage.setItem('durak_ai_gen_model', m);
+    } catch {}
+  };
+
   const handleOpenEditCharacter = (char: CharacterProfile, isNew = false) => {
     setEditingCharacter({ ...char });
     setIsNewCharacter(isNew);
@@ -122,7 +152,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsGeneratingAiCharacter(true);
 
     try {
-      const activePlayer = localPlayers.find(p => p.type === 'llm');
       const generated = await characterService.generateCharacterWithAi({
         currentName: editingCharacter.name === 'Новый игрок' ? '' : editingCharacter.name,
         currentAvatar: editingCharacter.avatar === '😎' ? '' : editingCharacter.avatar,
@@ -131,8 +160,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         currentPrompt: editingCharacter.promptFlavor,
         lmStudioBaseUrl: localLmUrl,
         openRouterApiKey: localApiKey,
-        provider: activePlayer?.provider || 'lmstudio',
-        modelId: activePlayer?.modelId
+        provider: aiGenProvider,
+        modelId: aiGenModelId
       });
 
       setEditingCharacter({
@@ -792,34 +821,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       {isNewCharacter ? 'Создание нового персонажа' : `Редактирование: ${editingCharacter.name || 'Без имени'}`}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    {/* Magic Wand Button */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleGenerateWithAi}
-                      disabled={isGeneratingAiCharacter}
-                      className="h-7 text-xs bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-sky-500/20 hover:from-amber-500/30 hover:via-purple-500/30 hover:to-sky-500/30 border-amber-500/50 text-amber-300 font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
-                      title="ИИ дополнит или сгенерирует имя, аватар, титул и характер персонажа!"
-                    >
-                      {isGeneratingAiCharacter ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                      ) : (
-                        <Wand2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                      )}
-                      <span>{isGeneratingAiCharacter ? 'ИИ придумывает...' : '✨ Волшебная палочка (ИИ)'}</span>
-                    </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingCharacter(null)}
+                    className="h-7 w-7 p-0 text-slate-400 hover:text-slate-100"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
 
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingCharacter(null)}
-                      className="h-7 w-7 p-0 text-slate-400 hover:text-slate-100"
+                {/* AI Generator Model & Provider Configuration Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-xl bg-slate-900/90 border border-slate-800 text-xs">
+                  <div className="flex items-center gap-1.5 flex-wrap flex-1 min-w-0">
+                    <span className="text-[11px] text-slate-400 font-medium shrink-0">ИИ Генератор:</span>
+                    <select
+                      value={aiGenProvider}
+                      onChange={e => handleSetAiGenProvider(e.target.value as LlmProvider)}
+                      className="h-7 rounded-md border border-slate-700 bg-slate-950 px-2 text-xs text-amber-300 font-semibold shrink-0"
                     >
-                      <X className="w-4 h-4" />
-                    </Button>
+                      <option value="lmstudio">💻 LM Studio</option>
+                      <option value="openrouter">🌐 OpenRouter</option>
+                    </select>
+
+                    <div className="w-44 sm:w-60 min-w-[140px]">
+                      <ModelCombobox
+                        value={aiGenModelId}
+                        onChange={handleSetAiGenModelId}
+                        provider={aiGenProvider}
+                        models={aiGenProvider === 'openrouter' ? openRouterModels : lmStudioModels}
+                        isLoading={aiGenProvider === 'openrouter' ? isLoadingOpenRouter : isLoadingLm}
+                      />
+                    </div>
                   </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerateWithAi}
+                    disabled={isGeneratingAiCharacter}
+                    className="h-7 text-xs bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-sky-500/20 hover:from-amber-500/30 hover:via-purple-500/30 hover:to-sky-500/30 border-amber-500/50 text-amber-300 font-bold flex items-center gap-1.5 shadow-md active:scale-95 transition-all shrink-0 ml-auto"
+                    title="Запустить генерацию через выбранную модель"
+                  >
+                    {isGeneratingAiCharacter ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                    ) : (
+                      <Wand2 className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                    )}
+                    <span>{isGeneratingAiCharacter ? 'ИИ думает...' : '✨ Волшебная палочка (ИИ)'}</span>
+                  </Button>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
