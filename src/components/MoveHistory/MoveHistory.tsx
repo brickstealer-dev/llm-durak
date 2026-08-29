@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { MoveLogItem } from '../../types/durak';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { ArrowDown, Coins, History, MessageSquareQuote, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, Coins, History, MessageSquareQuote, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { currencyService, CurrencyCode } from '../../services/currencyService';
 
@@ -86,11 +86,22 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({
                 className="flex flex-col gap-1 p-2 rounded-xl bg-slate-900/80 border border-slate-800/90 text-xs transition-colors hover:bg-slate-900/95"
               >
                 {/* Header: player & action */}
-                <div className="flex items-center justify-between gap-1.5">
+                <div className="flex items-center justify-between gap-1.5 flex-wrap">
                   <span className="font-bold text-amber-300 text-[11px] truncate">{item.playerName}</span>
-                  <Badge variant="outline" className="text-[10px] py-0 border-slate-700 bg-slate-800/80 font-medium">
-                    {item.actionText}
-                  </Badge>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {item.errorsCount && item.errorsCount > 0 ? (
+                      <span
+                        className="text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded bg-rose-950/80 border border-rose-500/40 text-rose-300 flex items-center gap-0.5 shadow-sm"
+                        title={item.errorReasons?.join('\n') || `${item.errorsCount} ошибок хода`}
+                      >
+                        <AlertTriangle className="w-2.5 h-2.5 text-rose-400" />
+                        <span>{item.errorsCount} {item.errorsCount === 1 ? 'ошибка' : 'ошибки'}</span>
+                      </span>
+                    ) : null}
+                    <Badge variant="outline" className="text-[10px] py-0 border-slate-700 bg-slate-800/80 font-medium">
+                      {item.actionText}
+                    </Badge>
+                  </div>
                 </div>
 
                 {/* Comment / Trash talk */}
@@ -98,6 +109,17 @@ export const MoveHistory: React.FC<MoveHistoryProps> = ({
                   <div className="flex items-start gap-1 text-[11px] text-slate-300 italic pl-1.5 border-l-2 border-amber-500/50 mt-0.5 leading-snug">
                     <MessageSquareQuote className="w-3 h-3 text-amber-400 shrink-0 mt-0.5" />
                     <span>«{item.comment}»</span>
+                  </div>
+                )}
+
+                {/* Error reasons detail in move log */}
+                {item.errorReasons && item.errorReasons.length > 0 && (
+                  <div className="text-[9.5px] text-rose-300/80 font-mono bg-rose-950/40 px-1.5 py-0.5 rounded border border-rose-900/50 mt-0.5 space-y-0.5">
+                    {item.errorReasons.map((reason, rIdx) => (
+                      <div key={rIdx} className="truncate">
+                        <span className="text-rose-400 font-bold">⚠️ Попытка #{rIdx + 1}:</span> {reason}
+                      </div>
+                    ))}
                   </div>
                 )}
 

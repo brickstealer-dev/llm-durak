@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowDown, Brain, Coins, Sparkles, Zap } from 'lucide-react';
+import { AlertTriangle, ArrowDown, Brain, Coins, Sparkles, Zap } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Button } from '../ui/button';
 import { currencyService, CurrencyCode } from '../../services/currencyService';
@@ -12,6 +12,8 @@ export interface ThinkingSpoilerProps {
   costUsd?: number;
   currencyCode?: CurrencyCode;
   characterName?: string;
+  errorsCount?: number;
+  errorReasons?: string[];
   className?: string;
 }
 
@@ -23,6 +25,8 @@ export const ThinkingSpoiler: React.FC<ThinkingSpoilerProps> = ({
   costUsd = 0,
   currencyCode = 'RUB',
   characterName,
+  errorsCount = 0,
+  errorReasons = [],
   className
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -68,14 +72,26 @@ export const ThinkingSpoiler: React.FC<ThinkingSpoilerProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between px-3.5 py-2.5 bg-gradient-to-r from-amber-500/15 via-slate-900 to-slate-900 border-b border-slate-800 select-none shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className={cn('p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 shadow-sm', isStreaming && 'animate-pulse')}>
-            <Brain className="w-4 h-4" />
+          <div className={cn('p-2 rounded-xl bg-amber-500/20 text-amber-400 shrink-0 shadow-sm transition-all', isStreaming && 'ring-1 ring-amber-400/50 bg-amber-500/30')}>
+            <Brain className={cn('w-4 h-4 text-amber-400', isStreaming && 'animate-spin')} />
           </div>
           <div className="flex flex-col min-w-0 leading-tight">
             {/* 1 - рассуждения модели */}
-            <span className="font-bold text-xs sm:text-sm text-slate-100 truncate">
-              Рассуждения модели
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="font-bold text-xs sm:text-sm text-slate-100 truncate">
+                Рассуждения модели
+              </span>
+              {errorsCount > 0 && (
+                <span
+                  className="flex items-center gap-1 text-[9.5px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40 px-1.5 py-0.2 rounded animate-pulse"
+                  title={errorReasons.length > 0 ? errorReasons.join('\n') : `${errorsCount} повторных попыток`}
+                >
+                  <AlertTriangle className="w-2.5 h-2.5 text-rose-400 shrink-0" />
+                  <span>{errorsCount} {errorsCount === 1 ? 'ошибка' : errorsCount < 5 ? 'ошибки' : 'ошибок'}</span>
+                </span>
+              )}
+            </div>
+
             {/* 2 - имя человечка поменьше шрифт */}
             <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
               {characterName ? (
@@ -85,12 +101,6 @@ export const ThinkingSpoiler: React.FC<ThinkingSpoilerProps> = ({
               ) : (
                 <span className="text-[10px] text-slate-400 truncate">
                   Ожидание хода
-                </span>
-              )}
-              {isStreaming && (
-                <span className="flex items-center gap-0.5 text-[10px] text-amber-300 font-mono animate-pulse shrink-0">
-                  <Sparkles className="w-2.5 h-2.5 text-amber-400" />
-                  Генерация...
                 </span>
               )}
             </div>
@@ -132,6 +142,24 @@ export const ThinkingSpoiler: React.FC<ThinkingSpoilerProps> = ({
           onScroll={handleScroll}
           className="h-full w-full p-3 overflow-y-auto font-mono text-xs text-slate-300 leading-relaxed whitespace-pre-wrap selection:bg-amber-500/30 scroll-smooth"
         >
+          {/* Error Banner if model had retries */}
+          {errorReasons && errorReasons.length > 0 && (
+            <div className="mb-2.5 p-2 rounded-xl bg-rose-950/70 border border-rose-500/40 text-xs text-rose-200 shadow-sm animate-in fade-in-0 slide-in-from-top-1">
+              <div className="flex items-center gap-1.5 font-bold text-rose-300 text-[11px] mb-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span>Ошибки модели в текущем ходе ({errorReasons.length}):</span>
+              </div>
+              <div className="space-y-1 text-[10.5px] font-mono pl-1.5 border-l-2 border-rose-500/60">
+                {errorReasons.map((reason, i) => (
+                  <div key={i} className="flex items-start gap-1">
+                    <span className="text-rose-400 shrink-0 font-bold">Попытка #{i + 1}:</span>
+                    <span className="text-rose-200/90">{reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {thinkingText ? (
             <>
               {thinkingText}

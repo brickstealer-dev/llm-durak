@@ -15,7 +15,9 @@ export interface ExecuteDurakTurnParams {
   customBaseUrl?: string;
   customApiKey?: string;
   maxRetries?: number;
-  callbacks: StreamCallbacks;
+  callbacks: StreamCallbacks & {
+    onRetry?: (retry: RetryLog, totalRetries: number) => void;
+  };
   abortSignal?: AbortSignal;
 }
 
@@ -371,12 +373,14 @@ export class DurakJudge {
         if (abortSignal?.aborted) throw err;
         callbacks.onStatusUpdate(`Ошибка: ${msg}`);
 
-        retries.push({
+        const retryEntry: RetryLog = {
           attempt: currentAttempt,
           rawResponse: '',
           errorReason: msg,
           timestamp: Date.now()
-        });
+        };
+        retries.push(retryEntry);
+        callbacks.onRetry?.(retryEntry, retries.length);
 
         if (currentAttempt >= maxRetries) {
           throw new Error(`Превышено число попыток. Ошибка: ${msg}`);
@@ -405,15 +409,17 @@ export class DurakJudge {
         break;
       } else {
         sounds.playError();
-        lastErrorReason = parseResult.error || 'Недопустимый ход';
-        retries.push({
+        lastErrorReason = parseResult.error || (parseResult.rawMoveStr ? `Нелегальный ход "${parseResult.rawMoveStr}"` : 'Не удалось распознать формат хода');
+        const retryEntry: RetryLog = {
           attempt: currentAttempt,
           rawResponse,
           errorReason: lastErrorReason,
           timestamp: Date.now()
-        });
+        };
+        retries.push(retryEntry);
+        callbacks.onRetry?.(retryEntry, retries.length);
 
-        callbacks.onStatusUpdate(`🚨 Не удалось распознать ход: "${parseResult.rawMoveStr}". Повтор...`);
+        callbacks.onStatusUpdate(`🚨 Ошибка хода: ${lastErrorReason}. Повтор...`);
         currentAttempt++;
         if (currentAttempt <= maxRetries) {
           await new Promise(r => setTimeout(r, 600));

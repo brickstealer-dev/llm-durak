@@ -196,6 +196,8 @@ export const App: React.FC = () => {
   const [isStreamingThinking, setIsStreamingThinking] = useState(false);
   const [tokensPerSecond, setTokensPerSecond] = useState(0);
   const [tokenCount, setTokenCount] = useState(0);
+  const [liveErrorsCount, setLiveErrorsCount] = useState(0);
+  const [liveErrorReasons, setLiveErrorReasons] = useState<string[]>([]);
 
   const [speechBubbles, setSpeechBubbles] = useState<Record<number, string>>(() => {
     try {
@@ -232,6 +234,7 @@ export const App: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGameOverOpen, setIsGameOverOpen] = useState(false);
+  const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [gameOverSpeech, setGameOverSpeech] = useState<string | undefined>();
   const [isGameBusy, setIsGameBusy] = useState(false);
   
@@ -466,6 +469,8 @@ export const App: React.FC = () => {
       setLiveThinkingText('');
       setIsStreamingThinking(true);
       setCurrentMoveCostUsd(0);
+      setLiveErrorsCount(0);
+      setLiveErrorReasons([]);
       setFailedBotTurn(null);
 
       try {
@@ -495,6 +500,10 @@ export const App: React.FC = () => {
             },
             onStatusUpdate: status => {
               setStatusMessage(status);
+            },
+            onRetry: (retry, total) => {
+              setLiveErrorsCount(total);
+              setLiveErrorReasons(prev => [...prev, retry.errorReason || 'Ошибка распознавания хода']);
             },
             onTokenMetrics: m => {
               setTokensPerSecond(m.tokensPerSecond);
@@ -550,7 +559,9 @@ export const App: React.FC = () => {
             timestamp: Date.now(),
             tokensPerSecond: result.tokensPerSecond,
             tokenCount: result.tokenCount,
-            costUsd: result.costUsd
+            costUsd: result.costUsd,
+            errorsCount: result.retries?.length || 0,
+            errorReasons: result.retries?.map(r => r.errorReason || 'Ошибка хода') || []
           }
         ]);
 
@@ -884,11 +895,18 @@ export const App: React.FC = () => {
       {/* Top Header */}
       <header className="h-11 sm:h-12 w-full border-b border-slate-800/80 bg-slate-950/95 px-2.5 sm:px-4 py-1 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center gap-2">
-          <img
-            src="/logo.png"
-            alt="LLM Дурак"
-            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-md border border-amber-500/50 object-cover shrink-0"
-          />
+          <button
+            type="button"
+            onClick={() => setIsLogoModalOpen(true)}
+            className="rounded-lg overflow-hidden focus:outline-none focus:ring-2 focus:ring-amber-400 group cursor-pointer transition-transform hover:scale-105 active:scale-95 shrink-0"
+            title="Нажмите, чтобы рассмотреть логотип в полном размере"
+          >
+            <img
+              src="/logo.png"
+              alt="LLM Дурак"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-md border border-amber-500/50 object-cover"
+            />
+          </button>
           <div className="flex items-center gap-1.5">
             <h1 className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-100 flex items-center">
               LLM ДУРАК
@@ -1047,6 +1065,8 @@ export const App: React.FC = () => {
             tokenCount={tokenCount}
             costUsd={currentMoveCostUsd}
             currencyCode={currencyCode}
+            errorsCount={liveErrorsCount}
+            errorReasons={liveErrorReasons}
             characterName={
               thinkingPlayerIndex !== null
                 ? gameState.players[thinkingPlayerIndex]?.config.name
@@ -1380,6 +1400,48 @@ export const App: React.FC = () => {
         currencyCode={currencyCode}
         onResetSessionCosts={handleResetSessionCosts}
       />
+
+      {/* Logo Full-Size Viewer Lightbox Modal */}
+      {isLogoModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in-0 duration-200"
+          onClick={() => setIsLogoModalOpen(false)}
+        >
+          <div
+            className="relative max-w-sm sm:max-w-md w-full bg-slate-900/95 border border-amber-500/50 rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col items-center gap-3.5 animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setIsLogoModalOpen(false)}
+              className="absolute top-3 right-3 p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+              title="Закрыть"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Full Image */}
+            <div className="relative w-full aspect-square rounded-xl overflow-hidden border-2 border-amber-500/40 shadow-2xl ring-2 ring-amber-500/20 bg-slate-950">
+              <img
+                src="/logo.png"
+                alt="LLM Дурак Official Artwork"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Title & Description */}
+            <div className="text-center">
+              <h3 className="font-extrabold text-base sm:text-lg text-amber-400">
+                🃏 LLM Дурак
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Битва Нейросетей и Людей • Официальный 3D-арт
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

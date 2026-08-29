@@ -147,6 +147,8 @@ export interface MoveLogItem {
   tokensPerSecond?: number;
   tokenCount?: number;
   costUsd?: number;
+  errorsCount?: number;
+  errorReasons?: string[];
 }
 
 export interface RetryLog {
