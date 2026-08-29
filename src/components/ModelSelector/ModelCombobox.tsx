@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { LlmProvider } from '../../types/durak';
-import { OpenRouterModel } from '../../services/lmStudioClient';
+import { OpenRouterModel } from '../../services/llmClient';
 import { Badge } from '../ui/badge';
 import {
   Check,

@@ -140,13 +140,36 @@ export const OpponentSeat: React.FC<OpponentSeatProps> = ({
           {/* Строка 2: Модель */}
           {!player.isHuman ? (
             <div className="flex items-center gap-1 text-[8px] sm:text-[9px] font-mono text-amber-400/90 truncate">
-              <span className="w-1 h-1 rounded-full bg-emerald-400 shrink-0 inline-block" />
+              <span
+                className={cn(
+                  'w-1 h-1 rounded-full shrink-0 inline-block',
+                  player.config.provider === 'pollinations'
+                    ? 'bg-pink-400'
+                    : player.config.provider === 'custom'
+                    ? 'bg-purple-400'
+                    : player.config.provider === 'openrouter'
+                    ? 'bg-sky-400'
+                    : 'bg-emerald-400'
+                )}
+              />
               <span
                 className="truncate"
-                title={`${player.config.provider === 'lmstudio' ? 'LM Studio' : 'OpenRouter'}: ${player.config.modelId || 'auto'}`}
+                title={`${
+                  player.config.provider === 'pollinations'
+                    ? 'Pollinations AI'
+                    : player.config.provider === 'custom'
+                    ? 'Custom OpenAI'
+                    : player.config.provider === 'openrouter'
+                    ? 'OpenRouter'
+                    : 'LM Studio'
+                }: ${player.config.modelId || 'openai'}`}
               >
                 {player.config.modelId && player.config.modelId !== 'default' && player.config.modelId !== 'auto'
                   ? player.config.modelId.replace(/^.*\//, '')
+                  : player.config.provider === 'pollinations'
+                  ? '🌸 Pollinations (openai)'
+                  : player.config.provider === 'custom'
+                  ? 'Custom (авто)'
                   : isLocalLlm
                   ? 'LM Studio (авто)'
                   : 'OpenRouter (авто)'}

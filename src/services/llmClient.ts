@@ -54,11 +54,14 @@ export interface OpenRouterModel {
   };
 }
 
-export interface LMStudioModel {
+export interface LlmModel {
   id: string;
   name?: string;
   object?: string;
 }
+
+// Backward-compatible alias
+export type LMStudioModel = LlmModel;
 
 export const DEFAULT_MODEL_PRICING: Record<string, { prompt: number; completion: number }> = {
   'deepseek/deepseek-v4-flash-latest': { prompt: 0.0000001, completion: 0.0000002 },
@@ -96,6 +99,38 @@ export const POPULAR_OPENROUTER_MODELS: OpenRouterModel[] = [
   { id: 'meta-llama/llama-3.2-3b-instruct:free', name: 'Llama 3.2 3B (Free)', description: 'Легкая бесплатная модель для тестов', pricing: { prompt: '0', completion: '0' } }
 ];
 
+export const DEFAULT_POLLINATIONS_API_KEY = 'sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe';
+export const DEFAULT_POLLINATIONS_BASE_URL = 'https://gen.pollinations.ai/v1';
+
+export const POPULAR_POLLINATIONS_MODELS: LlmModel[] = [
+  { id: 'openai', name: 'GPT-5.4 / OpenAI (Рекомендуется)' },
+  { id: 'deepseek-pro', name: 'DeepSeek Pro (Глубокий расчет)' },
+  { id: 'claude', name: 'Claude 3.7 / Hybrid (Гроссмейстер)' },
+  { id: 'gemini', name: 'Gemini 2.0 Flash (Быстрый)' },
+  { id: 'mistral-large', name: 'Mistral Large (Тактик)' },
+  { id: 'grok-large', name: 'Grok Large (Трэшток)' },
+  { id: 'llama', name: 'Llama 3.3 70B' },
+  { id: 'qwen3.8-2.4t-a95b', name: 'Qwen 3.8 / Alibaba' }
+];
+
+export interface CustomProviderPreset {
+  id: string;
+  name: string;
+  baseUrl: string;
+  description: string;
+  needsKey: boolean;
+}
+
+export const POPULAR_CUSTOM_PRESETS: CustomProviderPreset[] = [
+  { id: 'pollinations', name: '🌸 Pollinations AI (По умолчанию)', baseUrl: 'https://gen.pollinations.ai/v1', description: 'Официальный Pollinations API (180+ моделей)', needsKey: true },
+  { id: 'ollama', name: '🦙 Ollama', baseUrl: 'http://localhost:11434/v1', description: 'Локальные модели через Ollama', needsKey: false },
+  { id: 'deepseek', name: '⚡ DeepSeek API', baseUrl: 'https://api.deepseek.com/v1', description: 'Официальный API DeepSeek (V3, R1)', needsKey: true },
+  { id: 'groq', name: '🚀 Groq Cloud', baseUrl: 'https://api.groq.com/openai/v1', description: 'Сверхбыстрый вывод моделей Llama/Qwen на LPU', needsKey: true },
+  { id: 'vllm', name: '🤖 vLLM / Jan / LocalAI', baseUrl: 'http://localhost:8000/v1', description: 'Локальный или серверный vLLM', needsKey: false },
+  { id: 'together', name: '🌌 Together AI', baseUrl: 'https://api.together.xyz/v1', description: 'Облачные открытые модели', needsKey: true },
+  { id: 'custom', name: '⚙️ Свой URL', baseUrl: '', description: 'Любой OpenAI-совместимый сервер', needsKey: false }
+];
+
 export function getRefererUrl(): string {
   if (typeof window !== 'undefined' && window.location) {
     return window.location.href || window.location.origin || 'http://localhost:5173/';
@@ -103,10 +138,10 @@ export function getRefererUrl(): string {
   return 'http://localhost:5173/';
 }
 
-export class LMStudioClient {
+export class LlmClient {
   private defaultBaseUrl = 'http://localhost:1234/v1';
 
-  public async fetchModels(baseUrl: string = this.defaultBaseUrl): Promise<LMStudioModel[]> {
+  public async fetchModels(baseUrl: string = this.defaultBaseUrl): Promise<LlmModel[]> {
     const cleanUrl = baseUrl.replace(/\/+$/, '');
     try {
       const response = await fetch(`${cleanUrl}/models`, {
@@ -129,6 +164,41 @@ export class LMStudioClient {
       const msg = err instanceof Error ? err.message : String(err);
       console.warn(`LM Studio fetchModels failed at ${cleanUrl}:`, msg);
       return [];
+    }
+  }
+
+  public async fetchPollinationsModels(apiKey: string = DEFAULT_POLLINATIONS_API_KEY): Promise<LlmModel[]> {
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey && apiKey.trim()) {
+        headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+      }
+
+      const response = await fetch('https://gen.pollinations.ai/v1/models', {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const rawList = Array.isArray(data) ? data : data.data || [];
+      if (Array.isArray(rawList)) {
+        const fetched: LlmModel[] = rawList.map((m: any) => ({
+          id: m.id || m.name || String(m),
+          name: m.name || m.id || String(m),
+          description: m.description
+        }));
+        const popIds = new Set(POPULAR_POLLINATIONS_MODELS.map(p => p.id));
+        const rest = fetched.filter(f => !popIds.has(f.id));
+        return [...POPULAR_POLLINATIONS_MODELS, ...rest];
+      }
+      return POPULAR_POLLINATIONS_MODELS;
+    } catch (err: unknown) {
+      console.warn('Pollinations models fetch failed, using popular presets:', err);
+      return POPULAR_POLLINATIONS_MODELS;
     }
   }
 
@@ -169,12 +239,41 @@ export class LMStudioClient {
     }
   }
 
+  public async fetchCustomModels(baseUrl: string, apiKey?: string): Promise<LlmModel[]> {
+    if (!baseUrl || !baseUrl.trim()) return [];
+    const cleanUrl = baseUrl.trim().replace(/\/+$/, '');
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (apiKey && apiKey.trim()) {
+        headers['Authorization'] = `Bearer ${apiKey.trim()}`;
+      }
+      const response = await fetch(`${cleanUrl}/models`, {
+        method: 'GET',
+        headers
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (data && Array.isArray(data.data)) {
+        return data.data;
+      }
+      return [];
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Custom OpenAI provider fetchModels failed at ${cleanUrl}:`, msg);
+      return [];
+    }
+  }
+
   public async streamMove(options: StreamMoveOptions): Promise<StreamMoveResult> {
     const {
-      provider = 'lmstudio',
+      provider = 'pollinations',
       baseUrl = this.defaultBaseUrl,
       apiKey,
-      modelId,
+      modelId = 'openai',
       modelPricing,
       systemPrompt,
       userPrompt,
@@ -184,28 +283,48 @@ export class LMStudioClient {
       abortSignal
     } = options;
 
-    const isLocal = provider === 'lmstudio';
-    const cleanBaseUrl = baseUrl.replace(/\/+$/, '');
-    const endpoint = isLocal ? `${cleanBaseUrl}/chat/completions` : 'https://openrouter.ai/api/v1/chat/completions';
+    const isPollinations = provider === 'pollinations';
+    const isLmStudio = provider === 'lmstudio';
+    const isOpenRouter = provider === 'openrouter';
+    const isCustom = provider === 'custom';
 
-    if (!isLocal && (!apiKey || !apiKey.trim())) {
-      throw new Error('Для игры через OpenRouter укажите ваш API-ключ в окне Настроек (⚙️ -> вкладка OpenRouter).');
+    const cleanBaseUrl = (baseUrl || this.defaultBaseUrl).trim().replace(/\/+$/, '');
+    let endpoint = `${cleanBaseUrl}/chat/completions`;
+
+    if (isPollinations) {
+      endpoint = 'https://gen.pollinations.ai/v1/chat/completions';
+    } else if (isOpenRouter) {
+      endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+    } else if (isCustom) {
+      endpoint = cleanBaseUrl.endsWith('/chat/completions') ? cleanBaseUrl : `${cleanBaseUrl}/chat/completions`;
+    }
+
+    if (isOpenRouter && (!apiKey || !apiKey.trim())) {
+      throw new Error('Для игры через OpenRouter укажите ваш API-ключ в настройках (⚙️ -> вкладка Модели).');
     }
 
     callbacks.onStatusUpdate(
-      isLocal
+      isPollinations
+        ? `Отправка запроса в Pollinations AI (${modelId})...`
+        : isLmStudio
         ? 'Отправка запроса в LM Studio...'
-        : `Отправка запроса в OpenRouter (${modelId})...`
+        : isOpenRouter
+        ? `Отправка запроса в OpenRouter (${modelId})...`
+        : `Отправка запроса в Custom API (${modelId})...`
     );
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
 
-    if (!isLocal) {
+    if (isPollinations) {
+      headers['Authorization'] = `Bearer ${apiKey?.trim() || DEFAULT_POLLINATIONS_API_KEY}`;
+    } else if (isOpenRouter) {
       headers['Authorization'] = `Bearer ${apiKey?.trim() || ''}`;
       headers['HTTP-Referer'] = getRefererUrl();
       headers['X-Title'] = 'LLM Durak';
+    } else if (isCustom && apiKey && apiKey.trim()) {
+      headers['Authorization'] = `Bearer ${apiKey.trim()}`;
     }
 
     const messages = [
@@ -214,7 +333,7 @@ export class LMStudioClient {
     ];
 
     const body: Record<string, any> = {
-      model: modelId,
+      model: modelId || (isPollinations ? 'openai' : 'default'),
       messages,
       temperature,
       stream: true,
@@ -224,6 +343,8 @@ export class LMStudioClient {
     if (maxTokens && maxTokens > 0) {
       body.max_tokens = maxTokens;
     }
+
+    const providerName = isLmStudio ? 'LM Studio' : isOpenRouter ? 'OpenRouter' : 'Custom OpenAI';
 
     let response: Response;
     try {
@@ -235,7 +356,7 @@ export class LMStudioClient {
       });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new Error(`Ошибка соединения с ${isLocal ? 'LM Studio' : 'OpenRouter'}: ${msg}`);
+      throw new Error(`Ошибка соединения с ${providerName}: ${msg}`);
     }
 
     if (!response.ok) {
@@ -249,18 +370,18 @@ export class LMStudioClient {
       } catch {}
 
       if (response.status === 401) {
-        throw new Error('OpenRouter 401: Неверный или недействительный API-ключ. Проверьте ключ в Настройках ⚙️.');
+        throw new Error(`${providerName} 401: Неверный или недействительный API-ключ. Проверьте ключ в Настройках ⚙️.`);
       } else if (response.status === 402) {
-        throw new Error(`OpenRouter 402: Недостаточно средств на балансе аккаунта для модели ${modelId}.`);
+        throw new Error(`${providerName} 402: Недостаточно средств на балансе аккаунта для модели ${modelId}.`);
       } else if (response.status === 429) {
-        throw new Error('OpenRouter 429: Превышен лимит запросов (Rate limit). Попробуйте снова через несколько секунд.');
+        throw new Error(`${providerName} 429: Превышен лимит запросов (Rate limit). Попробуйте снова через несколько секунд.`);
       }
 
-      throw new Error(`${isLocal ? 'LM Studio' : 'OpenRouter'} HTTP ${response.status}: ${response.statusText} — ${cleanErrMsg}`);
+      throw new Error(`${providerName} HTTP ${response.status}: ${response.statusText} — ${cleanErrMsg}`);
     }
 
     if (!response.body) {
-      throw new Error(`Ответ сервера ${isLocal ? 'LM Studio' : 'OpenRouter'} не содержит потока данных (empty body).`);
+      throw new Error(`Ответ сервера ${providerName} не содержит потока данных (empty body).`);
     }
 
     const reader = response.body.getReader();
@@ -286,7 +407,7 @@ export class LMStudioClient {
     const priceCompletion = Number(modelPricing?.completion ?? pricingFallback.completion ?? 0);
 
     const calculateCurrentCost = (promptTok: number, compTok: number) => {
-      if (isLocal) return 0;
+      if (!isOpenRouter) return 0;
       if (explicitCostUsd !== null) return explicitCostUsd;
       return (promptTok * pricePrompt) + (compTok * priceCompletion);
     };
@@ -357,7 +478,7 @@ export class LMStudioClient {
               // Check for errors returned in stream
               if (parsed.error) {
                 const errMsg = typeof parsed.error === 'string' ? parsed.error : parsed.error.message || JSON.stringify(parsed.error);
-                throw new Error(`LM Studio ошибка: ${errMsg}`);
+                throw new Error(`LLM ошибка: ${errMsg}`);
               }
 
               if (parsed.usage) {
@@ -555,4 +676,6 @@ function formatCard(card: any): string {
   return `${card.rank}${suitSymbols[card.suit] || ''}`;
 }
 
-export const lmStudioService = new LMStudioClient();
+export const llmService = new LlmClient();
+export const lmStudioService = llmService;
+export const LMStudioClient = LlmClient;

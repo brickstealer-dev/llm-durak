@@ -1,6 +1,6 @@
 import { DurakEngine, formatCard } from './durakEngine';
 import { Card, GameAction, MoveLogItem, PlayerConfig, RetryLog } from '../types/durak';
-import { lmStudioService, StreamCallbacks } from './lmStudioClient';
+import { llmService, StreamCallbacks, DEFAULT_POLLINATIONS_API_KEY } from './llmClient';
 import { buildSystemPrompt, buildUserMovePrompt, CHARACTER_PROFILES } from './prompts';
 import { sounds } from './soundEffects';
 
@@ -9,8 +9,11 @@ export interface ExecuteDurakTurnParams {
   playerIndex: number;
   playerConfig: PlayerConfig;
   lastOpponentComment?: string;
+  pollinationsApiKey?: string;
   lmStudioBaseUrl: string;
   openRouterApiKey?: string;
+  customBaseUrl?: string;
+  customApiKey?: string;
   maxRetries?: number;
   callbacks: StreamCallbacks;
   abortSignal?: AbortSignal;
@@ -281,7 +284,7 @@ export class DurakJudge {
         const isExplicitMock = playerConfig.modelId === 'mock-ai' && provider !== 'lmstudio' && provider !== 'openrouter';
 
         if (isExplicitMock) {
-          const result = await lmStudioService.simulateMockMove(
+          const result = await llmService.simulateMockMove(
             engine.getState(),
             playerIndex,
             legalActions,
@@ -297,29 +300,57 @@ export class DurakJudge {
           costUsd = result.costUsd || 0;
         } else {
           let targetModelId = playerConfig.modelId || '';
-          if (provider === 'lmstudio' && (!targetModelId || targetModelId === 'default' || targetModelId === 'auto' || targetModelId === 'first_available')) {
-            try {
-              const loadedModels = await lmStudioService.fetchModels(lmStudioBaseUrl);
-              if (loadedModels && loadedModels.length > 0) {
-                targetModelId = loadedModels[0].id;
-                console.log(`[DurakJudge] Auto-detected first available active LM Studio model: ${targetModelId}`);
+          let targetUrl = lmStudioBaseUrl;
+          let targetKey = openRouterApiKey;
+
+          if (provider === 'pollinations') {
+            targetUrl = 'https://gen.pollinations.ai/v1';
+            targetKey = playerConfig.pollinationsApiKey || params.pollinationsApiKey || DEFAULT_POLLINATIONS_API_KEY;
+            if (!targetModelId || targetModelId === 'default' || targetModelId === 'auto') {
+              targetModelId = 'openai';
+            }
+          } else if (provider === 'lmstudio') {
+            targetUrl = lmStudioBaseUrl;
+            if (!targetModelId || targetModelId === 'default' || targetModelId === 'auto' || targetModelId === 'first_available') {
+              try {
+                const loadedModels = await llmService.fetchModels(lmStudioBaseUrl);
+                if (loadedModels && loadedModels.length > 0) {
+                  targetModelId = loadedModels[0].id;
+                }
+              } catch (e) {
+                console.warn('[DurakJudge] Could not fetch models from LM Studio, falling back to default:', e);
               }
-            } catch (e) {
-              console.warn('[DurakJudge] Could not fetch models from LM Studio, falling back to default:', e);
+              if (!targetModelId || targetModelId === 'auto' || targetModelId === 'first_available') {
+                targetModelId = 'default';
+              }
             }
-            if (!targetModelId || targetModelId === 'auto' || targetModelId === 'first_available') {
-              targetModelId = 'default';
+          } else if (provider === 'openrouter') {
+            targetKey = openRouterApiKey;
+            if (!targetModelId || targetModelId === 'default' || targetModelId === 'auto') {
+              targetModelId = 'deepseek/deepseek-r1';
             }
-          } else if (provider === 'openrouter' && (!targetModelId || targetModelId === 'default' || targetModelId === 'auto')) {
-            targetModelId = 'deepseek/deepseek-r1';
+          } else if (provider === 'custom') {
+            targetUrl = playerConfig.customBaseUrl || params.customBaseUrl || 'https://gen.pollinations.ai/v1';
+            targetKey = playerConfig.customApiKey || params.customApiKey || DEFAULT_POLLINATIONS_API_KEY;
+            if (!targetModelId || targetModelId === 'default' || targetModelId === 'auto') {
+              try {
+                const loaded = await llmService.fetchCustomModels(targetUrl, targetKey);
+                if (loaded && loaded.length > 0) {
+                  targetModelId = loaded[0].id;
+                }
+              } catch {}
+              if (!targetModelId || targetModelId === 'auto') {
+                targetModelId = 'default';
+              }
+            }
           }
 
-          console.log(`[DurakJudge] Requesting ${provider} completions at ${lmStudioBaseUrl} with model ${targetModelId}`);
+          console.log(`[DurakJudge] Requesting ${provider} completions at ${targetUrl} with model ${targetModelId}`);
 
-          const result = await lmStudioService.streamMove({
+          const result = await llmService.streamMove({
             provider,
-            baseUrl: lmStudioBaseUrl,
-            apiKey: openRouterApiKey,
+            baseUrl: targetUrl,
+            apiKey: targetKey,
             modelId: targetModelId,
             systemPrompt,
             userPrompt,

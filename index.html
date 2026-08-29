@@ -1,17 +1,20 @@
 <!doctype html>
-<html lang="ru" class="dark">
+<html lang="ru" class="dark h-full overflow-hidden overscroll-none">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🃏</text></svg>" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="description" content="LLM Дурак — Интерактивная карточная игра в Дурака (Подкидной и Переводной) с локальными и облачными LLM, стримингом мыслей и трэштоком." />
     <title>🃏 LLM Дурак — Битва Нейросетей и Людей</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-amber-500/30 selection:text-amber-200 overflow-x-hidden font-sans">
-    <div id="root"></div>
+  <body class="bg-slate-950 text-slate-100 h-full w-full overflow-hidden select-none overscroll-none font-sans">
+    <div id="root" class="h-full w-full overflow-hidden"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -164,9 +164,12 @@ class CharacterService {
     currentTitle?: string;
     currentDescription?: string;
     currentPrompt?: string;
+    pollinationsApiKey?: string;
     lmStudioBaseUrl?: string;
     openRouterApiKey?: string;
-    provider?: 'lmstudio' | 'openrouter';
+    customBaseUrl?: string;
+    customApiKey?: string;
+    provider?: string;
     modelId?: string;
   }): Promise<CharacterProfile> {
     const {
@@ -175,10 +178,13 @@ class CharacterService {
       currentTitle = '',
       currentDescription = '',
       currentPrompt = '',
+      pollinationsApiKey = 'sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe',
       lmStudioBaseUrl = 'http://localhost:1234/v1',
       openRouterApiKey = '',
-      provider = 'lmstudio',
-      modelId
+      customBaseUrl = 'https://gen.pollinations.ai/v1',
+      customApiKey = 'sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe',
+      provider = 'pollinations',
+      modelId = 'openai'
     } = params;
 
     const systemPrompt = `Ты — профессиональный сценарист и геймдизайнер карточных игр.
@@ -204,9 +210,15 @@ class CharacterService {
 
     let endpoint = '';
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    let bodyModel = modelId || 'default';
+    let bodyModel = modelId || 'openai';
 
-    if (provider === 'openrouter') {
+    if (provider === 'pollinations') {
+      endpoint = 'https://gen.pollinations.ai/v1/chat/completions';
+      headers['Authorization'] = `Bearer ${pollinationsApiKey || 'sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe'}`;
+      if (!modelId || modelId === 'mock-ai' || modelId === 'default' || modelId === 'auto') {
+        bodyModel = 'openai';
+      }
+    } else if (provider === 'openrouter') {
       if (!openRouterApiKey) {
         throw new Error('Укажите API Key для OpenRouter в настройках (вкладка «Модели нейросетей»)');
       }
@@ -216,6 +228,18 @@ class CharacterService {
       headers['X-Title'] = 'LLM Durak Character Generator';
       if (!modelId || modelId === 'mock-ai' || modelId === 'default' || modelId === 'auto') {
         bodyModel = 'google/gemini-2.0-flash-001';
+      }
+    } else if (provider === 'custom') {
+      if (!customBaseUrl) {
+        throw new Error('Укажите Base URL для Custom OpenAI в настройках (вкладка «Модели нейросетей»)');
+      }
+      const cleanCustom = customBaseUrl.trim().replace(/\/+$/, '');
+      endpoint = cleanCustom.endsWith('/chat/completions') ? cleanCustom : `${cleanCustom}/chat/completions`;
+      if (customApiKey && customApiKey.trim()) {
+        headers['Authorization'] = `Bearer ${customApiKey.trim()}`;
+      }
+      if (!modelId || modelId === 'auto') {
+        bodyModel = 'default';
       }
     } else {
       const cleanBase = (lmStudioBaseUrl || 'http://localhost:1234/v1').replace(/\/+$/, '');

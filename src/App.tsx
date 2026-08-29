@@ -15,7 +15,7 @@ import {
 import { DurakEngine, formatCard } from './services/durakEngine';
 import { durakJudge } from './services/durakJudge';
 import { buildGameOverSpeechPrompt, CHARACTER_PROFILES } from './services/prompts';
-import { lmStudioService } from './services/lmStudioClient';
+import { llmService } from './services/llmClient';
 import { sounds } from './services/soundEffects';
 import { speechService } from './services/speechService';
 import { currencyService, CurrencyCode } from './services/currencyService';
@@ -29,7 +29,28 @@ import { GameOverModal } from './components/GameOverModal/GameOverModal';
 import { Button } from './components/ui/button';
 import { Badge } from './components/ui/badge';
 import { cn } from './lib/utils';
-import { AlertTriangle, Brain, Coins, History, Loader2, MessageSquareQuote, Mic, MicOff, Pause, Play, RefreshCw, Settings, Sparkles, Trophy, Volume2, VolumeX, Zap } from 'lucide-react';
+import {
+  AlertTriangle,
+  Brain,
+  ChevronRight,
+  Coins,
+  History,
+  Loader2,
+  MessageSquareQuote,
+  Mic,
+  MicOff,
+  Pause,
+  Play,
+  RefreshCw,
+  Settings,
+  SlidersHorizontal,
+  Sparkles,
+  Trophy,
+  Volume2,
+  VolumeX,
+  X,
+  Zap
+} from 'lucide-react';
 
 const DEFAULT_PLAYERS: PlayerConfig[] = [
   {
@@ -42,8 +63,8 @@ const DEFAULT_PLAYERS: PlayerConfig[] = [
     id: 'player_bot_1',
     name: 'Николаич (Батя Двора)',
     type: 'llm',
-    provider: 'lmstudio',
-    modelId: 'default',
+    provider: 'pollinations',
+    modelId: 'openai',
     style: 'nikolaich'
   }
 ];
@@ -76,6 +97,14 @@ export const App: React.FC = () => {
   const [mode, setMode] = useState<DurakMode>(initialMode);
   const [playersConfig, setPlayersConfig] = useState<PlayerConfig[]>(initialPlayers);
 
+  const [pollinationsApiKey, setPollinationsApiKey] = useState(() => {
+    try {
+      const saved = localStorage.getItem('durak_pollinations_key');
+      if (saved) return saved;
+    } catch {}
+    return 'sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe';
+  });
+
   const [lmStudioBaseUrl, setLmStudioBaseUrl] = useState(() => {
     try {
       const saved = localStorage.getItem('durak_lm_url');
@@ -90,6 +119,22 @@ export const App: React.FC = () => {
       if (saved) return saved;
     } catch {}
     return '';
+  });
+
+  const [customBaseUrl, setCustomBaseUrl] = useState(() => {
+    try {
+      const saved = localStorage.getItem('durak_custom_base_url');
+      if (saved) return saved;
+    } catch {}
+    return 'https://gen.pollinations.ai/v1';
+  });
+
+  const [customApiKey, setCustomApiKey] = useState(() => {
+    try {
+      const saved = localStorage.getItem('durak_custom_api_key');
+      if (saved) return saved;
+    } catch {}
+    return 'sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe';
   });
 
   // Currency & Session cost tracking
@@ -295,6 +340,40 @@ export const App: React.FC = () => {
     localStorage.removeItem('durak_player_costs');
   };
 
+  // Full-height Bottom Block Sidebar Drawer State & Swipe Handlers
+  const [isBottomSidebarOpen, setIsBottomSidebarOpen] = useState(false);
+  const bottomTouchStartX = useRef<number | null>(null);
+  const bottomTouchStartY = useRef<number | null>(null);
+
+  const handleBottomTouchStart = (e: React.TouchEvent) => {
+    bottomTouchStartX.current = e.touches[0].clientX;
+    bottomTouchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleBottomTouchMove = (e: React.TouchEvent) => {
+    if (bottomTouchStartX.current === null || bottomTouchStartY.current === null) return;
+    const deltaX = e.touches[0].clientX - bottomTouchStartX.current;
+    const deltaY = e.touches[0].clientY - bottomTouchStartY.current;
+
+    // Horizontal dominant swipe
+    if (Math.abs(deltaX) > 35 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+      if (deltaX < -35 && !isBottomSidebarOpen) {
+        setIsBottomSidebarOpen(true);
+        bottomTouchStartX.current = null;
+        bottomTouchStartY.current = null;
+      } else if (deltaX > 35 && isBottomSidebarOpen) {
+        setIsBottomSidebarOpen(false);
+        bottomTouchStartX.current = null;
+        bottomTouchStartY.current = null;
+      }
+    }
+  };
+
+  const handleBottomTouchEnd = () => {
+    bottomTouchStartX.current = null;
+    bottomTouchStartY.current = null;
+  };
+
   // Start / Restart Game (Preserves cumulative session costs)
   const startNewGame = useCallback(() => {
     if (abortControllerRef.current) {
@@ -397,8 +476,11 @@ export const App: React.FC = () => {
           playerIndex: turnPlayerIndex,
           playerConfig: player.config,
           lastOpponentComment: lastComment,
+          pollinationsApiKey,
           lmStudioBaseUrl,
           openRouterApiKey,
+          customBaseUrl,
+          customApiKey,
           maxRetries: 3,
           callbacks: {
             onThinkingChunk: (_chunk, full) => {
@@ -495,7 +577,7 @@ export const App: React.FC = () => {
         setIsStreamingThinking(false);
       }
     },
-    [gameState.phase, gameState.moveNumber, lmStudioBaseUrl, openRouterApiKey, isTtsEnabled, speechBubbles]
+    [gameState.phase, gameState.moveNumber, pollinationsApiKey, lmStudioBaseUrl, openRouterApiKey, customBaseUrl, customApiKey, isTtsEnabled, speechBubbles]
   );
 
   // Auto-play trigger for LLM turns
@@ -579,10 +661,14 @@ export const App: React.FC = () => {
           finalState.isEpaulettes,
           durak.config.name
         );
-        const res = await lmStudioService.streamMove({
-          provider: durak.config.provider,
-          baseUrl: lmStudioBaseUrl,
-          apiKey: openRouterApiKey,
+        const durakProvider = durak.config.provider || 'pollinations';
+        const durakUrl = durakProvider === 'custom' ? (durak.config.customBaseUrl || customBaseUrl) : durakProvider === 'pollinations' ? 'https://gen.pollinations.ai/v1' : lmStudioBaseUrl;
+        const durakKey = durakProvider === 'custom' ? (durak.config.customApiKey || customApiKey) : durakProvider === 'pollinations' ? (durak.config.pollinationsApiKey || pollinationsApiKey) : openRouterApiKey;
+
+        const res = await llmService.streamMove({
+          provider: durakProvider,
+          baseUrl: durakUrl,
+          apiKey: durakKey,
           modelId: durak.config.modelId || 'mock-ai',
           systemPrompt: speechPrompt.systemPrompt,
           userPrompt: speechPrompt.userPrompt,
@@ -793,13 +879,15 @@ export const App: React.FC = () => {
   const humanPlayer = gameState.players[0];
 
   return (
-    <div className="h-[100dvh] max-h-[100dvh] w-full bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans select-none">
+    <div className="fixed inset-0 h-full max-h-[100dvh] w-full bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans select-none overscroll-none touch-none">
       {/* Top Header */}
-      <header className="h-11 sm:h-12 w-full border-b border-slate-800/80 bg-slate-950/95 px-3 sm:px-4 py-1.5 flex items-center justify-between z-30 shrink-0">
+      <header className="h-11 sm:h-12 w-full border-b border-slate-800/80 bg-slate-950/95 px-2.5 sm:px-4 py-1 flex items-center justify-between z-30 shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-sm shadow-md shadow-amber-500/20">
-            🃏
-          </div>
+          <img
+            src="/logo.png"
+            alt="LLM Дурак"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-md border border-amber-500/50 object-cover shrink-0"
+          />
           <div className="flex items-center gap-1.5">
             <h1 className="font-extrabold text-xs sm:text-sm tracking-tight text-slate-100 flex items-center">
               LLM ДУРАК
@@ -807,87 +895,55 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Session Scoreboard & Cost */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
-          {/* Session Scoreboard Badge */}
+        {/* Session Scoreboard & Cost (Two 2-row Column Cards) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 justify-end">
+          {/* Column 1: Scoreboard */}
           <button
             onClick={() => setIsGameOverOpen(true)}
-            className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-[10.5px] sm:text-[11px] font-mono text-amber-300 font-bold hover:bg-amber-500/25 transition-colors shadow-sm"
+            className="flex flex-col items-center justify-center px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all text-center group shadow-sm active:scale-95 min-w-[70px]"
             title={`Счёт за сеанс (Партий: ${sessionStats.gamesPlayed}). Нажмите для просмотра детальной таблицы`}
           >
-            <Trophy className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 shrink-0" />
-            <span className="truncate max-w-[110px] sm:max-w-none">
+            <div className="flex items-center gap-1 text-[8.5px] sm:text-[9.5px] uppercase font-bold tracking-wider text-amber-400/90 leading-none">
+              <Trophy className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+              <span>Счёт{sessionStats.gamesPlayed > 0 ? ` #${sessionStats.gamesPlayed}` : ''}</span>
+            </div>
+            <div className="font-mono font-black text-[11px] sm:text-xs text-amber-300 leading-tight mt-0.5 tracking-tight truncate max-w-[95px] sm:max-w-none">
               {sessionStats.gamesPlayed > 0
                 ? gameState.players
                     .map(p => `${p.config.name.split(' ')[0]}: ${sessionStats.scores[p.config.id]?.wins || 0}`)
                     .join(' : ')
-                : 'Счёт 0 : 0'}
-            </span>
-            {sessionStats.gamesPlayed > 0 && (
-              <span className="text-[8.5px] sm:text-[9px] px-1 py-0 rounded bg-amber-500/25 text-amber-200">
-                #{sessionStats.gamesPlayed}
-              </span>
-            )}
+                : '0 : 0'}
+            </div>
           </button>
 
-          {/* Cumulative Session Cost */}
+          {/* Column 2: Cumulative Session Cost */}
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className="flex items-center gap-1 px-2 sm:px-2.5 py-0.5 rounded-full bg-emerald-950/70 border border-emerald-500/30 text-[10.5px] sm:text-[11px] font-mono text-emerald-300 font-bold hover:bg-emerald-900/60 transition-colors shadow-sm"
-            title="Нажмите, чтобы настроить валюту или сбросить расходы"
+            className="flex flex-col items-center justify-center px-2 py-0.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/60 border border-emerald-500/30 transition-all text-center group shadow-sm active:scale-95 min-w-[75px]"
+            title="Расходы на LLM за сеанс. Нажмите, чтобы настроить валюту или сбросить расходы"
           >
-            <Coins className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-emerald-400" />
-            <span>Сеанс: {currencyService.formatCost(sessionTotalCostUsd, currencyCode)}</span>
+            <div className="flex items-center gap-1 text-[8.5px] sm:text-[9.5px] uppercase font-bold tracking-wider text-emerald-400/90 leading-none">
+              <Coins className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+              <span>Сеанс</span>
+            </div>
+            <div className="font-mono font-black text-[11px] sm:text-xs text-emerald-300 leading-tight mt-0.5 tracking-tight">
+              {currencyService.formatCost(sessionTotalCostUsd, currencyCode)}
+            </div>
           </button>
 
-          <div className="hidden md:flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-medium max-w-[200px] truncate shadow-inner">
+          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] text-amber-300 font-medium max-w-[170px] truncate shadow-inner">
             <Sparkles className="w-3 h-3 text-amber-400 shrink-0 animate-pulse" />
             <span className="truncate">{statusMessage}</span>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-1">
-          {/* Pause / Resume Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleTogglePause}
-            className={cn(
-              'h-7 text-xs border-slate-700 bg-slate-900/80 px-2 sm:px-2.5 font-bold transition-all',
-              isPaused && 'border-amber-400 bg-amber-500/20 text-amber-300 ring-1 ring-amber-400 animate-pulse'
-            )}
-            title={isPaused ? 'Снять с паузы (Продолжить игру)' : 'Поставить игру на паузу'}
-          >
-            {isPaused ? (
-              <>
-                <Play className="w-3 h-3 mr-1 text-emerald-400 fill-emerald-400" />
-                <span>Пуск</span>
-              </>
-            ) : (
-              <>
-                <Pause className="w-3 h-3 mr-1 text-amber-400 fill-amber-400" />
-                <span className="hidden sm:inline">Пауза</span>
-              </>
-            )}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={startNewGame}
-            className="h-7 text-xs border-slate-700 bg-slate-900/80 px-2 sm:px-3 hover:bg-amber-500/20 hover:text-amber-300 transition-colors"
-            title="Раздать карты на новый раунд (прервать текущий и начать заново)"
-          >
-            <RefreshCw className="w-3 h-3 mr-1 text-amber-400" />
-            <span className="hidden sm:inline">Раздать</span>
-          </Button>
-
+        {/* Header Controls (Settings, Sound, TTS) */}
+        <div className="flex items-center gap-1.5">
           <Button
             variant="outline"
             size="icon"
             onClick={() => setIsSettingsOpen(true)}
-            className="h-7 w-7 border-slate-700 bg-slate-900/80"
+            className="h-7 w-7 border-slate-700 bg-slate-900/80 hover:bg-slate-800"
             title="Настройки игры, валюты и моделей"
           >
             <Settings className="w-3.5 h-3.5 text-slate-300" />
@@ -897,7 +953,8 @@ export const App: React.FC = () => {
             variant="outline"
             size="icon"
             onClick={handleToggleMute}
-            className="h-7 w-7 border-slate-700 bg-slate-900/80"
+            className="h-7 w-7 border-slate-700 bg-slate-900/80 hover:bg-slate-800"
+            title={isMuted ? 'Включить звук' : 'Выключить звук'}
           >
             {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-400" />}
           </Button>
@@ -906,7 +963,8 @@ export const App: React.FC = () => {
             variant="outline"
             size="icon"
             onClick={handleToggleTts}
-            className="h-7 w-7 border-slate-700 bg-slate-900/80"
+            className="h-7 w-7 border-slate-700 bg-slate-900/80 hover:bg-slate-800"
+            title={isTtsEnabled ? 'Озвучка реплик включена' : 'Озвучка реплик выключена'}
           >
             {isTtsEnabled ? <Mic className="w-3.5 h-3.5 text-amber-400" /> : <MicOff className="w-3.5 h-3.5 text-slate-500" />}
           </Button>
@@ -971,7 +1029,7 @@ export const App: React.FC = () => {
       </div>
 
       {/* Main Full-Screen 3-Column Arena & Mobile Tabs View */}
-      <main className="flex-1 min-h-0 w-full px-2 sm:px-3 py-1.5 sm:py-2 grid grid-cols-1 lg:grid-cols-12 gap-2 sm:gap-2.5 overflow-hidden items-stretch">
+      <main className="flex-1 min-h-0 h-full w-full px-1 sm:px-3 py-1 sm:py-2 grid grid-cols-1 lg:grid-cols-12 gap-1 sm:gap-2.5 overflow-hidden items-stretch">
         
         {/* Left Column (3 cols on lg): Thinking Stream Panel */}
         <div
@@ -1000,7 +1058,7 @@ export const App: React.FC = () => {
         {/* Center Column (6 cols on lg): Card Table + Hand + Controls */}
         <div
           className={cn(
-            'flex-col justify-between gap-1.5 h-full min-h-0 overflow-hidden',
+            'flex-col justify-between gap-1 sm:gap-1.5 h-full min-h-0 overflow-hidden',
             mobileTab === 'game' ? 'flex col-span-1' : 'hidden',
             'lg:flex lg:col-span-6 xl:col-span-6'
           )}
@@ -1025,7 +1083,7 @@ export const App: React.FC = () => {
 
           {/* Bot Turn Error Banner & Retry Button */}
           {failedBotTurn && (
-            <div className="shrink-0 w-full px-3 py-2 rounded-xl bg-rose-950/95 border border-rose-500/70 text-rose-200 text-xs shadow-2xl flex flex-wrap items-center justify-between gap-2 animate-in fade-in-0 slide-in-from-bottom-2">
+            <div className="shrink-0 w-full px-2.5 py-1.5 rounded-xl bg-rose-950/95 border border-rose-500/70 text-rose-200 text-xs shadow-2xl flex flex-wrap items-center justify-between gap-2 animate-in fade-in-0 slide-in-from-bottom-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 animate-bounce" />
                 <div className="min-w-0">
@@ -1052,7 +1110,12 @@ export const App: React.FC = () => {
           )}
 
           {/* Player Hand & Controls Box */}
-          <div className="shrink-0 w-full rounded-2xl bg-slate-900/90 border border-slate-800/90 p-2 backdrop-blur-md shadow-xl flex flex-col items-center">
+          <div
+            className="relative overflow-hidden shrink-0 w-full rounded-xl sm:rounded-2xl bg-slate-900/95 border border-slate-800/90 p-1 sm:p-2 backdrop-blur-md shadow-xl flex flex-col items-center select-none"
+            onTouchStart={handleBottomTouchStart}
+            onTouchMove={handleBottomTouchMove}
+            onTouchEnd={handleBottomTouchEnd}
+          >
             <div className="w-full flex items-center justify-between px-2 pb-0.5 border-b border-slate-800/60 text-[11px]">
               <div className="flex items-center gap-1.5 flex-wrap">
                 {humanPlayer?.config.type === 'llm' ? (
@@ -1060,9 +1123,13 @@ export const App: React.FC = () => {
                     <span className="font-bold text-amber-300 flex items-center gap-1">
                       <span>🤖 {humanPlayer.config.name}</span>
                     </span>
-                    <Badge variant="outline" className="text-[8.5px] px-1.5 py-0 border-amber-500/40 text-amber-300 font-mono">
+                    <Badge variant="outline" className="text-[8.5px] px-1.5 py-0 border-pink-500/40 text-pink-300 font-mono">
                       {humanPlayer.config.modelId && humanPlayer.config.modelId !== 'default'
                         ? humanPlayer.config.modelId.replace(/^.*\//, '')
+                        : humanPlayer.config.provider === 'pollinations'
+                        ? '🌸 Pollinations AI'
+                        : humanPlayer.config.provider === 'custom'
+                        ? 'Custom API'
                         : humanPlayer.config.provider === 'lmstudio'
                         ? 'LM Studio'
                         : 'OpenRouter'}
@@ -1070,9 +1137,9 @@ export const App: React.FC = () => {
                     <span
                       className={cn(
                         'text-[8.5px] font-mono font-bold px-1.5 py-0 rounded border flex items-center gap-0.5 shrink-0',
-                        humanPlayer.config.provider === 'lmstudio'
-                          ? 'text-slate-400 bg-slate-800/80 border-slate-700/50'
-                          : 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+                        humanPlayer.config.provider === 'openrouter'
+                          ? 'text-emerald-400 bg-emerald-950/60 border-emerald-500/30'
+                          : 'text-slate-400 bg-slate-800/80 border-slate-700/50'
                       )}
                     >
                       💸 {currencyService.formatCost(playerCostsUsd[humanPlayer.config.id] || 0, currencyCode)}
@@ -1146,7 +1213,101 @@ export const App: React.FC = () => {
               playerComment={humanTrashTalk}
               onPlayerCommentChange={setHumanTrashTalk}
               onSendComment={handleSendHumanComment}
+              isSidebarOpen={isBottomSidebarOpen}
+              onToggleSidebar={() => setIsBottomSidebarOpen(prev => !prev)}
             />
+
+            {/* Backdrop overlay covering the whole bottom block */}
+            {isBottomSidebarOpen && (
+              <div
+                onClick={() => setIsBottomSidebarOpen(false)}
+                className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm z-30 transition-opacity rounded-xl"
+              />
+            )}
+
+            {/* Full Height Drawer Sidebar Covering the Entire Bottom Box */}
+            <div
+              className={cn(
+                'absolute inset-y-0 right-0 z-40 w-64 sm:w-80 h-full bg-slate-950/98 backdrop-blur-2xl border-l border-amber-500/50 shadow-2xl p-3 sm:p-4 flex flex-col justify-between rounded-r-xl transition-transform duration-300 ease-out',
+                isBottomSidebarOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+              )}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-amber-400">
+                  <SlidersHorizontal className="w-4 h-4 text-amber-400" />
+                  <span>Управление партией</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBottomSidebarOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                  title="Закрыть панель"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Action Buttons: Deal & Pause */}
+              <div className="space-y-2.5 py-3 flex-1 flex flex-col justify-center">
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => {
+                    startNewGame();
+                    setIsBottomSidebarOpen(false);
+                  }}
+                  className="w-full justify-start h-12 border-slate-700 bg-slate-900/90 hover:bg-amber-500/20 hover:text-amber-300 hover:border-amber-500/40 text-xs font-bold transition-all shadow-sm group"
+                >
+                  <RefreshCw className="w-4 h-4 mr-3 text-amber-400 group-hover:rotate-180 transition-transform duration-500 shrink-0" />
+                  <div className="flex flex-col text-left">
+                    <span>Раздать карты</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Перемешать и начать новый раунд</span>
+                  </div>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={handleTogglePause}
+                  className={cn(
+                    'w-full justify-start h-12 border-slate-700 bg-slate-900/90 text-xs font-bold transition-all shadow-sm',
+                    isPaused && 'border-amber-400 bg-amber-500/20 text-amber-300 ring-1 ring-amber-400'
+                  )}
+                >
+                  {isPaused ? (
+                    <>
+                      <Play className="w-4 h-4 mr-3 text-emerald-400 fill-emerald-400 shrink-0" />
+                      <div className="flex flex-col text-left">
+                        <span>Продолжить игру</span>
+                        <span className="text-[10px] text-emerald-400/80 font-normal">Снять с паузы</span>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Pause className="w-4 h-4 mr-3 text-amber-400 fill-amber-400 shrink-0" />
+                      <div className="flex flex-col text-left">
+                        <span>Пауза</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Приостановить ход ботов</span>
+                      </div>
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Footer */}
+              <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Свайпните вправо →</span>
+                <button
+                  type="button"
+                  onClick={() => setIsBottomSidebarOpen(false)}
+                  className="flex items-center text-slate-400 hover:text-slate-200 transition-colors font-medium"
+                >
+                  <span>Свернуть</span>
+                  <ChevronRight className="w-3.5 h-3.5 ml-0.5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1174,10 +1335,16 @@ export const App: React.FC = () => {
           engineRef.current.updatePlayersConfig(p);
           setGameState({ ...engineRef.current.getState() });
         }}
+        pollinationsApiKey={pollinationsApiKey}
+        onSavePollinationsKey={k => setPollinationsApiKey(k)}
         lmStudioBaseUrl={lmStudioBaseUrl}
         onSaveLmStudioUrl={url => setLmStudioBaseUrl(url)}
         openRouterApiKey={openRouterApiKey}
         onSaveOpenRouterKey={k => setOpenRouterApiKey(k)}
+        customBaseUrl={customBaseUrl}
+        onSaveCustomBaseUrl={url => setCustomBaseUrl(url)}
+        customApiKey={customApiKey}
+        onSaveCustomApiKey={k => setCustomApiKey(k)}
         currencyCode={currencyCode}
         onSaveCurrency={c => setCurrencyCode(c)}
         onResetSessionCosts={handleResetSessionCosts}
@@ -1192,6 +1359,9 @@ export const App: React.FC = () => {
         gameOverSpeech={gameOverSpeech}
         sessionStats={sessionStats}
         onResetSessionScore={handleResetSessionScore}
+        sessionTotalCostUsd={sessionTotalCostUsd}
+        currencyCode={currencyCode}
+        onResetSessionCosts={handleResetSessionCosts}
       />
     </div>
   );

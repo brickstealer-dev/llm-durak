@@ -11,7 +11,8 @@ import {
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { sounds } from '../../services/soundEffects';
-import { Award, Crown, MessageSquareQuote, RotateCcw, ShieldAlert, Trophy } from 'lucide-react';
+import { currencyService, CurrencyCode } from '../../services/currencyService';
+import { Award, Coins, Crown, MessageSquareQuote, RotateCcw, ShieldAlert, Trophy } from 'lucide-react';
 
 export interface GameOverModalProps {
   isOpen: boolean;
@@ -21,6 +22,9 @@ export interface GameOverModalProps {
   gameOverSpeech?: string;
   sessionStats?: SessionStats;
   onResetSessionScore?: () => void;
+  sessionTotalCostUsd?: number;
+  currencyCode?: CurrencyCode;
+  onResetSessionCosts?: () => void;
 }
 
 export const GameOverModal: React.FC<GameOverModalProps> = ({
@@ -30,7 +34,10 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
   onNewGame,
   gameOverSpeech,
   sessionStats,
-  onResetSessionScore
+  onResetSessionScore,
+  sessionTotalCostUsd = 0,
+  currencyCode = 'RUB',
+  onResetSessionCosts
 }) => {
   useEffect(() => {
     if (isOpen) {
@@ -105,41 +112,65 @@ export const GameOverModal: React.FC<GameOverModalProps> = ({
           })}
         </div>
 
-        {/* Session Scoreboard */}
-        {sessionStats && sessionStats.gamesPlayed > 0 && (
-          <div className="p-2.5 rounded-xl bg-slate-900/90 border border-amber-500/30 text-left text-xs space-y-1.5 shadow-inner">
+        {/* Session Scoreboard & Costs */}
+        {((sessionStats && sessionStats.gamesPlayed > 0) || (sessionTotalCostUsd !== undefined && sessionTotalCostUsd > 0)) && (
+          <div className="p-2.5 rounded-xl bg-slate-900/90 border border-amber-500/30 text-left text-xs space-y-2 shadow-inner">
             <div className="flex items-center justify-between">
               <span className="font-bold text-amber-400 flex items-center gap-1.5 text-[11.5px]">
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                Счёт за сеанс ({sessionStats.gamesPlayed} {sessionStats.gamesPlayed === 1 ? 'партия' : sessionStats.gamesPlayed < 5 ? 'партии' : 'партий'}):
+                Счёт за сеанс ({sessionStats?.gamesPlayed || 0} {sessionStats?.gamesPlayed === 1 ? 'партия' : (sessionStats?.gamesPlayed || 0) < 5 ? 'партии' : 'партий'}):
               </span>
-              {onResetSessionScore && (
-                <button
-                  type="button"
-                  onClick={onResetSessionScore}
-                  className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors underline"
-                >
-                  Сброс счёта
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {onResetSessionScore && (
+                  <button
+                    type="button"
+                    onClick={onResetSessionScore}
+                    className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors underline"
+                  >
+                    Сброс счёта
+                  </button>
+                )}
+                {onResetSessionCosts && sessionTotalCostUsd > 0 && (
+                  <button
+                    type="button"
+                    onClick={onResetSessionCosts}
+                    className="text-[10px] text-slate-400 hover:text-rose-400 transition-colors underline"
+                  >
+                    Сброс расходов
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-              {state.players.map(p => {
-                const sc = sessionStats.scores[p.config.id] || { wins: 0, durakCount: 0 };
-                return (
-                  <div
-                    key={p.config.id}
-                    className="flex items-center justify-between px-2 py-1 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px]"
-                  >
-                    <span className="font-bold text-slate-200 truncate pr-1">{p.config.name}</span>
-                    <span className="font-mono font-bold text-amber-300 shrink-0">
-                      🏆{sc.wins} <span className="text-slate-500">|</span> 💩{sc.durakCount}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+            {sessionStats && sessionStats.gamesPlayed > 0 && (
+              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                {state.players.map(p => {
+                  const sc = sessionStats.scores[p.config.id] || { wins: 0, durakCount: 0 };
+                  return (
+                    <div
+                      key={p.config.id}
+                      className="flex items-center justify-between px-2 py-1 rounded-lg bg-slate-950/70 border border-slate-800 text-[11px]"
+                    >
+                      <span className="font-bold text-slate-200 truncate pr-1">{p.config.name}</span>
+                      <span className="font-mono font-bold text-amber-300 shrink-0">
+                        🏆{sc.wins} <span className="text-slate-500">|</span> 💩{sc.durakCount}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {sessionTotalCostUsd > 0 && (
+              <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 text-[11px]">
+                <span className="text-slate-400 flex items-center gap-1">
+                  <Coins className="w-3 h-3 text-emerald-400" /> Расходы на LLM за сеанс:
+                </span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {currencyService.formatCost(sessionTotalCostUsd, currencyCode)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 

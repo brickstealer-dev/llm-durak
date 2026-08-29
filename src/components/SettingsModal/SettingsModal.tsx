@@ -24,15 +24,20 @@ import { Switch } from '../ui/switch';
 import { Badge } from '../ui/badge';
 import { ModelCombobox } from '../ModelSelector/ModelCombobox';
 import {
-  lmStudioService,
+  DEFAULT_MODEL_PRICING,
+  DEFAULT_POLLINATIONS_API_KEY,
+  LlmModel,
   OpenRouterModel,
-  POPULAR_OPENROUTER_MODELS
-} from '../../services/lmStudioClient';
+  POPULAR_CUSTOM_PRESETS,
+  POPULAR_OPENROUTER_MODELS,
+  POPULAR_POLLINATIONS_MODELS,
+  llmService
+} from '../../services/llmClient';
 import { currencyService, CurrencyCode } from '../../services/currencyService';
 import { speechService } from '../../services/speechService';
 import { PlayingCard } from '../Cards/PlayingCard';
 import { cn } from '../../lib/utils';
-import { Coins, Cpu, Edit3, FastForward, Gauge, Globe, Loader2, Play, Plus, RefreshCw, RotateCcw, Save, Sparkles, Trash2, User, Users, Volume2, Wand2, X, Zap } from 'lucide-react';
+import { Coins, Cpu, Edit3, FastForward, Gauge, Globe, Loader2, Play, Plus, RefreshCw, RotateCcw, Save, Server, Sparkles, Trash2, User, Users, Volume2, Wand2, X, Zap } from 'lucide-react';
 
 export interface SettingsModalProps {
   isOpen: boolean;
@@ -41,10 +46,16 @@ export interface SettingsModalProps {
   onSaveMode: (mode: DurakMode) => void;
   playersConfig: PlayerConfig[];
   onSavePlayers: (players: PlayerConfig[]) => void;
+  pollinationsApiKey?: string;
+  onSavePollinationsKey?: (key: string) => void;
   lmStudioBaseUrl: string;
   onSaveLmStudioUrl: (url: string) => void;
   openRouterApiKey: string;
   onSaveOpenRouterKey: (key: string) => void;
+  customBaseUrl?: string;
+  onSaveCustomBaseUrl?: (url: string) => void;
+  customApiKey?: string;
+  onSaveCustomApiKey?: (key: string) => void;
   currencyCode?: CurrencyCode;
   onSaveCurrency?: (code: CurrencyCode) => void;
   onResetSessionCosts?: () => void;
@@ -58,10 +69,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSaveMode,
   playersConfig,
   onSavePlayers,
+  pollinationsApiKey = DEFAULT_POLLINATIONS_API_KEY,
+  onSavePollinationsKey,
   lmStudioBaseUrl,
   onSaveLmStudioUrl,
   openRouterApiKey,
   onSaveOpenRouterKey,
+  customBaseUrl = 'https://gen.pollinations.ai/v1',
+  onSaveCustomBaseUrl,
+  customApiKey = DEFAULT_POLLINATIONS_API_KEY,
+  onSaveCustomApiKey,
   currencyCode = 'RUB',
   onSaveCurrency,
   onResetSessionCosts,
@@ -69,8 +86,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const [localMode, setLocalMode] = useState<DurakMode>(mode);
   const [localPlayers, setLocalPlayers] = useState<PlayerConfig[]>(playersConfig);
+  const [localPollinationsKey, setLocalPollinationsKey] = useState(pollinationsApiKey);
   const [localLmUrl, setLocalLmUrl] = useState(lmStudioBaseUrl);
   const [localApiKey, setLocalApiKey] = useState(openRouterApiKey);
+  const [localCustomUrl, setLocalCustomUrl] = useState(customBaseUrl);
+  const [localCustomKey, setLocalCustomKey] = useState(customApiKey);
   const [localAnimSpeed, setLocalAnimSpeed] = useState<string>(() => {
     try {
       return localStorage.getItem('durak_anim_speed') || '1';
@@ -115,16 +135,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   // AI Generator provider & model selection
   const [aiGenProvider, setAiGenProvider] = useState<LlmProvider>(() => {
     try {
-      return (localStorage.getItem('durak_ai_gen_provider') as LlmProvider) || 'lmstudio';
+      return (localStorage.getItem('durak_ai_gen_provider') as LlmProvider) || 'pollinations';
     } catch {
-      return 'lmstudio';
+      return 'pollinations';
     }
   });
   const [aiGenModelId, setAiGenModelId] = useState<string>(() => {
     try {
-      return localStorage.getItem('durak_ai_gen_model') || 'auto';
+      return localStorage.getItem('durak_ai_gen_model') || 'openai';
     } catch {
-      return 'auto';
+      return 'openai';
     }
   });
 
@@ -158,8 +178,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         currentTitle: editingCharacter.title === 'Карточный мастер' ? '' : editingCharacter.title,
         currentDescription: editingCharacter.description,
         currentPrompt: editingCharacter.promptFlavor,
+        pollinationsApiKey: localPollinationsKey,
         lmStudioBaseUrl: localLmUrl,
         openRouterApiKey: localApiKey,
+        customBaseUrl: localCustomUrl,
+        customApiKey: localCustomKey,
         provider: aiGenProvider,
         modelId: aiGenModelId
       });
@@ -175,7 +198,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       });
     } catch (e: any) {
       console.error('[SettingsModal] AI Generation failed:', e);
-      alert(`⚠️ Не удалось сгенерировать персонажа через LLM:\n${e?.message || e}\n\nУбедитесь, что локальный сервер LM Studio запущен (порт 1234) или во вкладке «Модели» указан верный ключ OpenRouter.`);
+      alert(`⚠️ Не удалось сгенерировать персонажа через LLM:\n${e?.message || e}\n\nУбедитесь, что выбранный сервер (Pollinations / LM Studio / OpenRouter / Custom OpenAI) доступен и настроен.`);
     } finally {
       setIsGeneratingAiCharacter(false);
     }
@@ -272,21 +295,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   // Models state
+  const [pollinationsModels, setPollinationsModels] = useState<{ id: string; name?: string }[]>(POPULAR_POLLINATIONS_MODELS);
   const [lmStudioModels, setLmStudioModels] = useState<{ id: string; name?: string }[]>([]);
   const [openRouterModels, setOpenRouterModels] = useState<OpenRouterModel[]>(POPULAR_OPENROUTER_MODELS);
+  const [customModels, setCustomModels] = useState<{ id: string; name?: string }[]>([]);
+  const [isLoadingPollinations, setIsLoadingPollinations] = useState(false);
   const [isLoadingLm, setIsLoadingLm] = useState(false);
   const [isLoadingOpenRouter, setIsLoadingOpenRouter] = useState(false);
+  const [isLoadingCustom, setIsLoadingCustom] = useState(false);
+  const [pollinationsStatus, setPollinationsStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [lmStatus, setLmStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [openRouterStatus, setOpenRouterStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [customStatus, setCustomStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [pollinationsErrorMsg, setPollinationsErrorMsg] = useState('');
   const [lmErrorMsg, setLmErrorMsg] = useState('');
   const [orErrorMsg, setOrErrorMsg] = useState('');
+  const [customErrorMsg, setCustomErrorMsg] = useState('');
+
+  // Fetch Pollinations AI Models
+  const fetchPollinationsList = async () => {
+    setIsLoadingPollinations(true);
+    setPollinationsErrorMsg('');
+    try {
+      const models = await llmService.fetchPollinationsModels(localPollinationsKey);
+      setPollinationsModels(models);
+      setPollinationsStatus('success');
+    } catch (err: any) {
+      setPollinationsStatus('error');
+      setPollinationsErrorMsg(err?.message || 'Ошибка загрузки моделей Pollinations');
+    } finally {
+      setIsLoadingPollinations(false);
+    }
+  };
 
   // Fetch LM Studio Models
   const fetchLmModels = async () => {
     setIsLoadingLm(true);
     setLmErrorMsg('');
     try {
-      const models = await lmStudioService.fetchModels(localLmUrl);
+      const models = await llmService.fetchModels(localLmUrl);
       setLmStudioModels(models);
       setLmStatus(models.length > 0 ? 'success' : 'error');
       if (models.length === 0) {
@@ -305,7 +352,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setIsLoadingOpenRouter(true);
     setOrErrorMsg('');
     try {
-      const models = await lmStudioService.fetchOpenRouterModels(localApiKey);
+      const models = await llmService.fetchOpenRouterModels(localApiKey);
       setOpenRouterModels(models);
       setOpenRouterStatus('success');
     } catch (err: any) {
@@ -316,15 +363,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
+  // Fetch Custom OpenAI Provider Models
+  const fetchCustomModelsList = async () => {
+    if (!localCustomUrl || !localCustomUrl.trim()) return;
+    setIsLoadingCustom(true);
+    setCustomErrorMsg('');
+    try {
+      const models = await llmService.fetchCustomModels(localCustomUrl, localCustomKey);
+      setCustomModels(models);
+      setCustomStatus(models.length > 0 ? 'success' : 'error');
+      if (models.length === 0) {
+        setCustomErrorMsg('Сервер ответил, но список моделей пуст.');
+      }
+    } catch (err: any) {
+      setCustomStatus('error');
+      setCustomErrorMsg(err?.message || 'Не удалось подключиться к OpenAI-серверу');
+    } finally {
+      setIsLoadingCustom(false);
+    }
+  };
+
   // Initial fetch on open
   useEffect(() => {
     if (isOpen) {
       setLocalMode(mode);
       setLocalPlayers(playersConfig);
+      setLocalPollinationsKey(pollinationsApiKey);
       setLocalLmUrl(lmStudioBaseUrl);
       setLocalApiKey(openRouterApiKey);
+      setLocalCustomUrl(customBaseUrl);
+      setLocalCustomKey(customApiKey);
+      fetchPollinationsList();
       fetchLmModels();
       fetchOrModels();
+      fetchCustomModelsList();
     }
   }, [isOpen]);
 
@@ -361,7 +433,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     // If provider changed, pick first available model or keep valid
     if (updates.provider && updates.provider !== prev.provider) {
-      if (updates.provider === 'lmstudio') {
+      if (updates.provider === 'pollinations') {
+        next.modelId = 'openai';
+      } else if (updates.provider === 'lmstudio') {
         next.modelId = 'default';
       } else if (updates.provider === 'openrouter') {
         next.modelId = 'deepseek/deepseek-r1';
@@ -373,11 +447,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   };
 
   const handleAddPlayer = () => {
-    if (localPlayers.length >= 4) return;
+    if (localPlayers.length >= 6) return;
     const newIdx = localPlayers.length + 1;
-    const styles: CharacterStyle[] = ['kaban', 'shuler', 'professor', 'patsan', 'baba_klava'];
-    const style = styles[(newIdx - 1) % styles.length];
-    const profile = CHARACTER_PROFILES[style];
+    const style: CharacterStyle = newIdx % 2 === 0 ? 'shuler' : 'professor';
+    const profile = CHARACTER_PROFILES[style] || { name: `Бот ${newIdx}` };
 
     setLocalPlayers([
       ...localPlayers,
@@ -385,8 +458,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         id: `player_${newIdx}`,
         name: profile.name,
         type: 'llm',
-        provider: 'lmstudio',
-        modelId: 'mock-ai',
+        provider: 'pollinations',
+        modelId: 'openai',
         style
       }
     ]);
@@ -400,14 +473,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleSave = () => {
     onSaveMode(localMode);
     onSavePlayers(localPlayers);
+    onSavePollinationsKey?.(localPollinationsKey);
     onSaveLmStudioUrl(localLmUrl);
     onSaveOpenRouterKey(localApiKey);
+    onSaveCustomBaseUrl?.(localCustomUrl);
+    onSaveCustomApiKey?.(localCustomKey);
 
     // Persist in localStorage
     try {
       localStorage.setItem('durak_mode', localMode);
+      localStorage.setItem('durak_pollinations_key', localPollinationsKey);
       localStorage.setItem('durak_lm_url', localLmUrl);
       localStorage.setItem('durak_or_key', localApiKey);
+      localStorage.setItem('durak_custom_base_url', localCustomUrl);
+      localStorage.setItem('durak_custom_api_key', localCustomKey);
       localStorage.setItem('durak_players', JSON.stringify(localPlayers));
     } catch {}
 
@@ -554,8 +633,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {localPlayers.map((player, idx) => {
                 const isLlm = player.type === 'llm';
-                const provider = player.provider || 'lmstudio';
-                const availableModels = provider === 'openrouter' ? openRouterModels : lmStudioModels;
+                const provider = player.provider || 'pollinations';
+                const availableModels =
+                  provider === 'pollinations'
+                    ? pollinationsModels
+                    : provider === 'openrouter'
+                    ? openRouterModels
+                    : provider === 'custom'
+                    ? customModels
+                    : lmStudioModels;
+                const isLoadingModels =
+                  provider === 'pollinations'
+                    ? isLoadingPollinations
+                    : provider === 'openrouter'
+                    ? isLoadingOpenRouter
+                    : provider === 'custom'
+                    ? isLoadingCustom
+                    : isLoadingLm;
 
                 return (
                   <div
@@ -630,8 +724,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onChange={e => handlePlayerChange(idx, { provider: e.target.value as LlmProvider })}
                             className="h-8 w-full rounded-md border border-slate-700 bg-slate-900 px-2 text-xs text-slate-200"
                           >
-                            <option value="lmstudio">LM Studio (Локально)</option>
-                            <option value="openrouter">OpenRouter (Облако)</option>
+                            <option value="pollinations">🌸 Pollinations AI (По умолчанию)</option>
+                            <option value="lmstudio">💻 LM Studio (Локально)</option>
+                            <option value="openrouter">🌐 OpenRouter (Облако)</option>
+                            <option value="custom">⚙️ Custom OpenAI API (Ollama/DeepSeek/Groq)</option>
                           </select>
                         </div>
 
@@ -642,7 +738,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             onChange={modelId => handlePlayerChange(idx, { modelId })}
                             provider={provider}
                             models={availableModels}
-                            isLoading={provider === 'openrouter' ? isLoadingOpenRouter : isLoadingLm}
+                            isLoading={isLoadingModels}
                           />
                         </div>
                       </div>
@@ -655,6 +751,55 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* Tab 2: Providers & Model Fetching */}
           <TabsContent value="models" className="space-y-4 py-2">
+            {/* Pollinations AI Section (Default) */}
+            <div className="p-3.5 rounded-xl bg-gradient-to-b from-pink-950/40 to-slate-950/80 border border-pink-900/50 space-y-3 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-pink-300 font-bold text-sm">
+                  <Sparkles className="w-4 h-4 text-pink-400 animate-pulse" /> 🌸 Pollinations AI (Провайдер по умолчанию)
+                </div>
+                {pollinationsStatus === 'success' && (
+                  <Badge variant="outline" className="text-[10px] bg-pink-950/80 border-pink-500/40 text-pink-300">
+                    🟢 Готово ({pollinationsModels.length} моделей)
+                  </Badge>
+                )}
+                {pollinationsStatus === 'error' && (
+                  <Badge variant="destructive" className="text-[10px]">
+                    🔴 Ошибка загрузки
+                  </Badge>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Бесплатный облачный доступ к 180+ передовым моделям: OpenAI GPT-5/GPT-4o, DeepSeek Pro/R1, Claude 3.7 Hybrid, Gemini 2.0 Flash, Llama 3.3. Ключ уже активирован и готов к игре!
+              </p>
+
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <label className="text-[11px] text-pink-200 block mb-1">API Key (Pollinations)</label>
+                  <Input
+                    type="password"
+                    value={localPollinationsKey}
+                    onChange={e => setLocalPollinationsKey(e.target.value)}
+                    placeholder="sk_V7C0VjDS2bfJmP33NgZDBMHEU7bp4nBe"
+                    className="h-9 text-xs font-mono border-pink-800/60 bg-slate-900/90 text-pink-200"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchPollinationsList}
+                  disabled={isLoadingPollinations}
+                  className="mt-5 h-9 text-xs border-pink-700/60 bg-pink-950/40 hover:bg-pink-900/50 text-pink-200 shrink-0"
+                >
+                  {isLoadingPollinations ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <RefreshCw className="w-3.5 h-3.5 mr-1 text-pink-400" />}
+                  Обновить каталог
+                </Button>
+              </div>
+
+              {pollinationsErrorMsg && (
+                <p className="text-[11px] text-rose-400 font-medium">{pollinationsErrorMsg}</p>
+              )}
+            </div>
             {/* LM Studio Section */}
             <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
@@ -746,6 +891,99 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
               {orErrorMsg && (
                 <p className="text-[11px] text-rose-400 font-medium">{orErrorMsg}</p>
+              )}
+            </div>
+
+            {/* Custom OpenAI-compatible Provider Section */}
+            <div className="p-3.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
+                  <Server className="w-4 h-4 text-purple-400" /> OpenAI-совместимый API (Свой провайдер)
+                </div>
+                {customStatus === 'success' && (
+                  <Badge variant="success" className="text-[10px]">
+                    🟢 Подключено ({customModels.length} моделей)
+                  </Badge>
+                )}
+                {customStatus === 'error' && (
+                  <Badge variant="destructive" className="text-[10px]">
+                    🔴 Ошибка связи
+                  </Badge>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-400">
+                Подключайте Ollama, официальный DeepSeek API, Groq Cloud, Together AI, vLLM, Jan или любой свой прокси-сервер.
+              </p>
+
+              {/* Quick Presets */}
+              <div className="space-y-1">
+                <label className="text-[11px] text-slate-400 block font-medium">Быстрые пресеты:</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {POPULAR_CUSTOM_PRESETS.map(preset => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        if (preset.baseUrl) setLocalCustomUrl(preset.baseUrl);
+                      }}
+                      className={cn(
+                        'px-2 py-1 rounded-md text-[11px] font-semibold border transition-all',
+                        localCustomUrl === preset.baseUrl
+                          ? 'border-purple-500 bg-purple-500/20 text-purple-200'
+                          : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                      )}
+                      title={`${preset.description} ${preset.needsKey ? '(Нужен API-ключ)' : ''}`}
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[11px] text-slate-300 block mb-1">Base URL (эндпоинт /v1)</label>
+                  <Input
+                    value={localCustomUrl}
+                    onChange={e => setLocalCustomUrl(e.target.value)}
+                    placeholder="http://localhost:11434/v1"
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-300 block mb-1">API Key (если требуется)</label>
+                  <Input
+                    type="password"
+                    value={localCustomKey}
+                    onChange={e => setLocalCustomKey(e.target.value)}
+                    placeholder="sk-... (для DeepSeek/Groq) или пусто"
+                    className="h-9 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-0.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchCustomModelsList}
+                  disabled={isLoadingCustom}
+                  className="h-8 text-xs border-slate-700 bg-slate-900"
+                >
+                  {isLoadingCustom ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" /> : <RefreshCw className="w-3.5 h-3.5 mr-1 text-purple-400" />}
+                  Проверить и обновить модели
+                </Button>
+
+                {customModels.length > 0 && (
+                  <span className="text-[11px] text-slate-400 font-mono">
+                    Загружено моделей: <b className="text-purple-300">{customModels.length}</b>
+                  </span>
+                )}
+              </div>
+
+              {customErrorMsg && (
+                <p className="text-[11px] text-rose-400 font-medium">{customErrorMsg}</p>
               )}
             </div>
           </TabsContent>
@@ -840,8 +1078,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       onChange={e => handleSetAiGenProvider(e.target.value as LlmProvider)}
                       className="h-7 rounded-md border border-slate-700 bg-slate-950 px-2 text-xs text-amber-300 font-semibold shrink-0"
                     >
+                      <option value="pollinations">🌸 Pollinations AI (По умолчанию)</option>
                       <option value="lmstudio">💻 LM Studio</option>
                       <option value="openrouter">🌐 OpenRouter</option>
+                      <option value="custom">⚙️ Custom OpenAI</option>
                     </select>
 
                     <div className="w-44 sm:w-60 min-w-[140px]">
@@ -849,8 +1089,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         value={aiGenModelId}
                         onChange={handleSetAiGenModelId}
                         provider={aiGenProvider}
-                        models={aiGenProvider === 'openrouter' ? openRouterModels : lmStudioModels}
-                        isLoading={aiGenProvider === 'openrouter' ? isLoadingOpenRouter : isLoadingLm}
+                        models={
+                          aiGenProvider === 'pollinations'
+                            ? pollinationsModels
+                            : aiGenProvider === 'openrouter'
+                            ? openRouterModels
+                            : aiGenProvider === 'custom'
+                            ? customModels
+                            : lmStudioModels
+                        }
+                        isLoading={
+                          aiGenProvider === 'pollinations'
+                            ? isLoadingPollinations
+                            : aiGenProvider === 'openrouter'
+                            ? isLoadingOpenRouter
+                            : aiGenProvider === 'custom'
+                            ? isLoadingCustom
+                            : isLoadingLm
+                        }
                       />
                     </div>
                   </div>

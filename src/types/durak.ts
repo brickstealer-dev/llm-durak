@@ -29,7 +29,7 @@ export type GamePhase =
   | 'game_over';
 
 export type PlayerType = 'human' | 'llm';
-export type LlmProvider = 'lmstudio' | 'openrouter';
+export type LlmProvider = 'pollinations' | 'openrouter' | 'lmstudio' | 'custom' | (string & {});
 
 export type CharacterStyle =
   | 'nikolaich'    // Дворовый батя с пивом и матом
@@ -59,6 +59,9 @@ export interface PlayerConfig {
   type: PlayerType;
   provider?: LlmProvider;
   modelId?: string;
+  pollinationsApiKey?: string;
+  customBaseUrl?: string;
+  customApiKey?: string;
   style: CharacterStyle;
   temperature?: number;
   maxTokens?: number;
