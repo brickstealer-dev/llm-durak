@@ -188,12 +188,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     const prev = updated[index];
     const next = { ...prev, ...updates };
 
+    // If style (personality) changed, automatically apply personality name
+    if (updates.style && updates.style !== prev.style) {
+      const profile = CHARACTER_PROFILES[updates.style];
+      if (profile) {
+        next.name = profile.name;
+      }
+    }
+
+    // If player type changed:
+    // human -> llm: save human name, apply LLM character name
+    // llm -> human: restore saved human name
+    if (updates.type && updates.type !== prev.type) {
+      if (updates.type === 'llm') {
+        next.savedHumanName = prev.savedHumanName || prev.name;
+        const profile = CHARACTER_PROFILES[next.style];
+        next.name = profile ? profile.name : 'Нейросеть';
+      } else if (updates.type === 'human') {
+        next.name = prev.savedHumanName || (index === 0 ? 'Семён' : `Игрок ${index + 1}`);
+      }
+    }
+
+    // If user edited name while in human mode, save it as their human name
+    if (updates.name !== undefined && next.type === 'human') {
+      next.savedHumanName = updates.name;
+    }
+
     // If provider changed, pick first available model or keep valid
     if (updates.provider && updates.provider !== prev.provider) {
       if (updates.provider === 'lmstudio') {
-        next.modelId = lmStudioModels.length > 0 ? lmStudioModels[0].id : 'mock-ai';
+        next.modelId = 'default';
       } else if (updates.provider === 'openrouter') {
-        next.modelId = openRouterModels.length > 0 ? openRouterModels[0].id : 'deepseek/deepseek-r1';
+        next.modelId = 'deepseek/deepseek-r1';
       }
     }
 

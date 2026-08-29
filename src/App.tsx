@@ -50,7 +50,15 @@ export const App: React.FC = () => {
   const initialPlayers = (() => {
     try {
       const saved = localStorage.getItem('durak_players');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: PlayerConfig[] = JSON.parse(saved);
+        return parsed.map(p => {
+          if (p.style === 'baba_klava' && (p.name === 'Баба Клава' || p.name.includes('Клава'))) {
+            return { ...p, name: 'Баба Нюра' };
+          }
+          return p;
+        });
+      }
     } catch {}
     return DEFAULT_PLAYERS;
   })();
@@ -853,11 +861,27 @@ export const App: React.FC = () => {
           {/* Player Hand & Controls Box */}
           <div className="shrink-0 w-full rounded-2xl bg-slate-900/90 border border-slate-800/90 p-2 backdrop-blur-md shadow-xl flex flex-col items-center">
             <div className="w-full flex items-center justify-between px-2 pb-0.5 border-b border-slate-800/60 text-[11px]">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-slate-200">👤 {humanPlayer?.config.name}</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {humanPlayer?.config.type === 'llm' ? (
+                  <>
+                    <span className="font-bold text-amber-300 flex items-center gap-1">
+                      <span>🤖 {humanPlayer.config.name}</span>
+                    </span>
+                    <Badge variant="outline" className="text-[8.5px] px-1.5 py-0 border-amber-500/40 text-amber-300 font-mono">
+                      {humanPlayer.config.modelId && humanPlayer.config.modelId !== 'default'
+                        ? humanPlayer.config.modelId.replace(/^.*\//, '')
+                        : humanPlayer.config.provider === 'lmstudio'
+                        ? 'LM Studio'
+                        : 'OpenRouter'}
+                    </Badge>
+                  </>
+                ) : (
+                  <span className="font-bold text-slate-200">👤 {humanPlayer?.config.name}</span>
+                )}
+
                 {isHumanTurn && (
                   <Badge variant="default" className="text-[9px] bg-amber-500 text-slate-950 font-black animate-pulse py-0 px-1">
-                    ТВОЙ ХОД!
+                    {humanPlayer?.config.type === 'llm' ? 'ХОД БОТА' : 'ТВОЙ ХОД!'}
                   </Badge>
                 )}
                 {gameState.phase === 'taking' && isHumanTurn && (

@@ -52,6 +52,7 @@ export interface CharacterProfile {
 export interface PlayerConfig {
   id: string;
   name: string;
+  savedHumanName?: string;
   type: PlayerType;
   provider?: LlmProvider;
   modelId?: string;
