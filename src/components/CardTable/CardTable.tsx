@@ -68,8 +68,8 @@ export const CardTable: React.FC<CardTableProps> = ({
       {/* Top Section: Opponents (Adaptive grid/flex that always fits 1, 2, or 3 opponents) */}
       <div
         className={cn(
-          'relative z-10 w-full flex items-center pt-0.5 sm:pt-1 shrink-0 px-0.5 sm:px-2',
-          opponents.length >= 3 ? 'justify-between gap-1 sm:gap-2' : 'justify-around gap-2'
+          'relative z-10 w-full flex items-center pt-0.5 sm:pt-1 shrink-0 px-0.5 sm:px-2 gap-1.5 sm:gap-4 md:gap-6',
+          opponents.length >= 3 ? 'justify-between sm:justify-center' : 'justify-around sm:justify-center'
         )}
       >
         {opponents.map((opp, oppIndex) => {
@@ -81,6 +81,13 @@ export const CardTable: React.FC<CardTableProps> = ({
                 ? 'right'
                 : 'center'
               : 'center';
+
+          const maxWidthClass =
+            opponents.length === 1
+              ? 'max-w-[220px] sm:max-w-[320px] md:max-w-[380px]'
+              : opponents.length === 2
+              ? 'max-w-[160px] sm:max-w-[280px] md:max-w-[340px]'
+              : 'max-w-[115px] sm:max-w-[240px] md:max-w-[300px] lg:max-w-[340px]';
 
           return (
             <OpponentSeat
@@ -97,6 +104,7 @@ export const CardTable: React.FC<CardTableProps> = ({
               sessionScore={sessionScores[opp.config.id]}
               compact={opponents.length >= 3}
               alignSpeech={alignSpeech}
+              className={maxWidthClass}
             />
           );
         })}

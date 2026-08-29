@@ -26,6 +26,7 @@ import { ThinkingSpoiler } from './components/Thinking/ThinkingSpoiler';
 import { MoveHistory } from './components/MoveHistory/MoveHistory';
 import { SettingsModal } from './components/SettingsModal/SettingsModal';
 import { GameOverModal } from './components/GameOverModal/GameOverModal';
+import { SessionScoreModal } from './components/SessionScoreModal/SessionScoreModal';
 import { Button } from './components/ui/button';
 import { Badge } from './components/ui/badge';
 import { cn } from './lib/utils';
@@ -34,6 +35,7 @@ import {
   Brain,
   ChevronRight,
   Coins,
+  Crown,
   History,
   Loader2,
   MessageSquareQuote,
@@ -44,8 +46,10 @@ import {
   Play,
   RefreshCw,
   Settings,
+  Shield,
   SlidersHorizontal,
   Sparkles,
+  Swords,
   Trophy,
   Volume2,
   VolumeX,
@@ -234,6 +238,7 @@ export const App: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isGameOverOpen, setIsGameOverOpen] = useState(false);
+  const [isSessionScoreOpen, setIsSessionScoreOpen] = useState(false);
   const [isLogoModalOpen, setIsLogoModalOpen] = useState(false);
   const [gameOverSpeech, setGameOverSpeech] = useState<string | undefined>();
   const [isGameBusy, setIsGameBusy] = useState(false);
@@ -889,6 +894,8 @@ export const App: React.FC = () => {
   };
 
   const humanPlayer = gameState.players[0];
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
+  const humanScore = sessionStats?.scores[humanPlayer?.config?.id] || { wins: 0, durakCount: 0 };
 
   return (
     <div className="fixed inset-0 h-full max-h-[100dvh] w-full bg-slate-950 text-slate-100 flex flex-col overflow-hidden font-sans select-none overscroll-none touch-none">
@@ -902,7 +909,7 @@ export const App: React.FC = () => {
             title="Нажмите, чтобы рассмотреть логотип в полном размере"
           >
             <img
-              src="/logo.png"
+              src={logoSrc}
               alt="LLM Дурак"
               className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-md border border-amber-500/50 object-cover"
             />
@@ -918,20 +925,18 @@ export const App: React.FC = () => {
         <div className="flex items-center gap-1.5 sm:gap-2 justify-end">
           {/* Column 1: Scoreboard */}
           <button
-            onClick={() => setIsGameOverOpen(true)}
+            onClick={() => setIsSessionScoreOpen(true)}
             className="flex flex-col items-center justify-center px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 transition-all text-center group shadow-sm active:scale-95 min-w-[70px]"
-            title={`Счёт за сеанс (Партий: ${sessionStats.gamesPlayed}). Нажмите для просмотра детальной таблицы`}
+            title={`Счёт за сеанс: ${humanScore.wins} побед, ${humanScore.durakCount} дурак (Партий: ${sessionStats.gamesPlayed}). Нажмите для просмотра детальной таблицы всех игроков`}
           >
             <div className="flex items-center gap-1 text-[8.5px] sm:text-[9.5px] uppercase font-bold tracking-wider text-amber-400/90 leading-none">
               <Trophy className="w-2.5 h-2.5 text-amber-400 shrink-0" />
               <span>Счёт{sessionStats.gamesPlayed > 0 ? ` #${sessionStats.gamesPlayed}` : ''}</span>
             </div>
-            <div className="font-mono font-black text-[11px] sm:text-xs text-amber-300 leading-tight mt-0.5 tracking-tight truncate max-w-[95px] sm:max-w-none">
-              {sessionStats.gamesPlayed > 0
-                ? gameState.players
-                    .map(p => `${p.config.name.split(' ')[0]}: ${sessionStats.scores[p.config.id]?.wins || 0}`)
-                    .join(' : ')
-                : '0 : 0'}
+            <div className="font-mono font-black text-[11px] sm:text-xs leading-tight mt-0.5 tracking-tight flex items-center gap-1">
+              <span className="text-amber-400">🏆 {humanScore.wins}</span>
+              <span className="text-slate-600 font-normal">:</span>
+              <span className="text-amber-200">💩 {humanScore.durakCount}</span>
             </div>
           </button>
 
@@ -1175,19 +1180,25 @@ export const App: React.FC = () => {
                 ) : (
                   <span className="font-bold text-slate-200 flex items-center gap-1.5 shrink-0">
                     <span>👤 {humanPlayer?.config.name}</span>
-                    {sessionStats.scores[humanPlayer?.config.id] && (sessionStats.scores[humanPlayer.config.id].wins > 0 || sessionStats.scores[humanPlayer.config.id].durakCount > 0) && (
-                      <span
-                        className="text-[8.5px] font-mono px-1.5 py-0.2 rounded bg-slate-800 border border-slate-700 text-amber-300 font-bold flex items-center gap-0.5 shadow-sm"
-                        title={`Счёт за сеанс: ${sessionStats.scores[humanPlayer.config.id].wins} побед, ${sessionStats.scores[humanPlayer.config.id].durakCount} дурак`}
-                      >
-                        🏆{sessionStats.scores[humanPlayer.config.id].wins} {sessionStats.scores[humanPlayer.config.id].durakCount > 0 && `💩${sessionStats.scores[humanPlayer.config.id].durakCount}`}
-                      </span>
-                    )}
+                  </span>
+                )}
+
+                {/* Role badge with sword / shield */}
+                {gameState.attackerIndex === humanPlayer?.index && !gameState.players[humanPlayer.index]?.isOut && (
+                  <span className="flex items-center gap-1 px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 text-[8.5px] font-bold shrink-0" title="Ты атакуешь">
+                    <Swords className="w-2.5 h-2.5 text-rose-400" />
+                    <span>Атака</span>
+                  </span>
+                )}
+                {gameState.defenderIndex === humanPlayer?.index && !gameState.players[humanPlayer.index]?.isOut && (
+                  <span className="flex items-center gap-1 px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[8.5px] font-bold shrink-0" title="Ты защищаешься">
+                    <Shield className="w-2.5 h-2.5 text-amber-400" />
+                    <span>Защита</span>
                   </span>
                 )}
 
                 {isHumanTurn && (
-                  <Badge variant="default" className="text-[9px] bg-amber-500 text-slate-950 font-black animate-pulse py-0 px-1 shrink-0">
+                  <Badge variant="default" className="text-[9px] bg-amber-500 text-slate-950 font-black animate-pulse py-0 px-1.5 shrink-0">
                     {humanPlayer?.config.type === 'llm' ? 'ХОД БОТА' : 'ТВОЙ ХОД!'}
                   </Badge>
                 )}
@@ -1401,6 +1412,18 @@ export const App: React.FC = () => {
         onResetSessionCosts={handleResetSessionCosts}
       />
 
+      <SessionScoreModal
+        isOpen={isSessionScoreOpen}
+        onClose={() => setIsSessionScoreOpen(false)}
+        state={gameState}
+        sessionStats={sessionStats}
+        onResetSessionScore={handleResetSessionScore}
+        sessionTotalCostUsd={sessionTotalCostUsd}
+        currencyCode={currencyCode}
+        playerCostsUsd={playerCostsUsd}
+        onResetSessionCosts={handleResetSessionCosts}
+      />
+
       {/* Logo Full-Size Viewer Lightbox Modal */}
       {isLogoModalOpen && (
         <div
@@ -1424,7 +1447,7 @@ export const App: React.FC = () => {
             {/* Full Image */}
             <div className="relative w-full aspect-square rounded-xl overflow-hidden border-2 border-amber-500/40 shadow-2xl ring-2 ring-amber-500/20 bg-slate-950">
               <img
-                src="/logo.png"
+                src={logoSrc}
                 alt="LLM Дурак Official Artwork"
                 className="w-full h-full object-cover"
               />
