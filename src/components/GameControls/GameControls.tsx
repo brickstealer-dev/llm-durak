@@ -66,12 +66,12 @@ export const GameControls: React.FC<GameControlsProps> = ({
   };
 
   return (
-    <div className={cn('w-full flex flex-col gap-1.5 px-2 py-1.5 relative', className)}>
-      {/* Main Actions Row (Clean, dedicated to gameplay actions & sidebar trigger) */}
-      <div className="w-full flex items-center justify-between gap-2 min-h-[36px]">
-        {/* Left Side: Status / Turn guidance info */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          {isHumanTurn ? (
+    <div className={cn('w-full flex flex-col gap-1.5 px-2 py-1 relative', className)}>
+      {/* Action Buttons Row (Only when player needs to act: PASS or TAKE) */}
+      {(passAction || (takeAction && !isTakingPhase)) && (
+        <div className="w-full flex items-center justify-between gap-2 min-h-[36px] animate-in fade-in-0 slide-in-from-bottom-1">
+          {/* Status / Guidance info */}
+          <div className="flex items-center gap-1.5 min-w-0">
             <span className="text-[11px] font-semibold text-amber-300 flex items-center gap-1">
               {isTakingPhase ? (
                 <span className="animate-pulse text-amber-400">⚠️ Подкидывай вдогонку!</span>
@@ -79,64 +79,43 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 <span>⚔️ Твой ход — выбери карту для хода</span>
               )}
             </span>
-          ) : (
-            <span className="text-[10.5px] text-slate-400 italic truncate">
-              {isGameBusy ? '🤖 Нейросеть обдумывает ход...' : 'Ожидание хода соперника...'}
-            </span>
-          )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0 ml-auto">
+            {passAction && (
+              <Button
+                variant="default"
+                size="lg"
+                disabled={!isHumanTurn || isGameBusy}
+                onClick={() => onAction(passAction)}
+                className={cn(
+                  'text-white font-bold text-xs sm:text-sm px-4 sm:px-5 h-9 shadow-lg active:scale-95 transition-all',
+                  isTakingPhase
+                    ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/40 animate-pulse'
+                    : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40'
+                )}
+              >
+                <Check className="w-4 h-4 mr-1.5" />
+                {isTakingPhase ? 'ОТДАТЬ КАРТЫ (БИТО)' : 'БИТО / ПАС'}
+              </Button>
+            )}
+
+            {takeAction && !isTakingPhase && (
+              <Button
+                variant="destructive"
+                size="lg"
+                disabled={!isHumanTurn || isGameBusy}
+                onClick={() => onAction(takeAction)}
+                className="font-bold text-xs sm:text-sm px-4 sm:px-5 h-9 shadow-lg shadow-rose-950/50 animate-pulse active:scale-95 transition-all"
+              >
+                <Hand className="w-4 h-4 mr-1.5" />
+                ВЗЯТЬ КАРТЫ
+              </Button>
+            )}
+          </div>
         </div>
-
-        {/* Right Side: Human Action Buttons & Sidebar Trigger Button */}
-        <div className="flex items-center gap-2 shrink-0">
-          {passAction && (
-            <Button
-              variant="default"
-              size="lg"
-              disabled={!isHumanTurn || isGameBusy}
-              onClick={() => onAction(passAction)}
-              className={cn(
-                'text-white font-bold text-xs sm:text-sm px-4 sm:px-5 h-9 shadow-lg active:scale-95 transition-all',
-                isTakingPhase
-                  ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/40 animate-pulse'
-                  : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/40'
-              )}
-            >
-              <Check className="w-4 h-4 mr-1.5" />
-              {isTakingPhase ? 'ОТДАТЬ КАРТЫ (БИТО)' : 'БИТО / ПАС'}
-            </Button>
-          )}
-
-          {takeAction && !isTakingPhase && (
-            <Button
-              variant="destructive"
-              size="lg"
-              disabled={!isHumanTurn || isGameBusy}
-              onClick={() => onAction(takeAction)}
-              className="font-bold text-xs sm:text-sm px-4 sm:px-5 h-9 shadow-lg shadow-rose-950/50 animate-pulse active:scale-95 transition-all"
-            >
-              <Hand className="w-4 h-4 mr-1.5" />
-              ВЗЯТЬ КАРТЫ
-            </Button>
-          )}
-
-          {/* Sidebar Trigger Button */}
-          {onToggleSidebar && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onToggleSidebar}
-              className={cn(
-                'font-bold text-xs border-slate-700 bg-slate-900/90 h-9 px-2.5 sm:px-3 text-slate-300 hover:text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/40 transition-all shadow-sm flex items-center gap-1.5',
-                isSidebarOpen && 'border-amber-400 bg-amber-500/20 text-amber-300 ring-1 ring-amber-400'
-              )}
-              title="Открыть боковое меню (Раздать / Пауза). Также работает свайп влево."
-            >
-              <PanelRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span className="hidden sm:inline">Меню</span>
-            </Button>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Bottom row: Trash-talk comment input & quick chips */}
       <div className="w-full flex items-center gap-1.5 pt-1 border-t border-slate-800/60">

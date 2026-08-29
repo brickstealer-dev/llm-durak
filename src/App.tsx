@@ -39,6 +39,7 @@ import {
   MessageSquareQuote,
   Mic,
   MicOff,
+  PanelRight,
   Pause,
   Play,
   RefreshCw,
@@ -1116,14 +1117,14 @@ export const App: React.FC = () => {
             onTouchMove={handleBottomTouchMove}
             onTouchEnd={handleBottomTouchEnd}
           >
-            <div className="w-full flex items-center justify-between px-2 pb-0.5 border-b border-slate-800/60 text-[11px]">
-              <div className="flex items-center gap-1.5 flex-wrap">
+            <div className="w-full flex items-center justify-between px-2 pb-0.5 border-b border-slate-800/60 text-[11px] gap-1.5">
+              <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                 {humanPlayer?.config.type === 'llm' ? (
                   <>
-                    <span className="font-bold text-amber-300 flex items-center gap-1">
+                    <span className="font-bold text-amber-300 flex items-center gap-1 shrink-0">
                       <span>🤖 {humanPlayer.config.name}</span>
                     </span>
-                    <Badge variant="outline" className="text-[8.5px] px-1.5 py-0 border-pink-500/40 text-pink-300 font-mono">
+                    <Badge variant="outline" className="text-[8.5px] px-1.5 py-0 border-pink-500/40 text-pink-300 font-mono shrink-0">
                       {humanPlayer.config.modelId && humanPlayer.config.modelId !== 'default'
                         ? humanPlayer.config.modelId.replace(/^.*\//, '')
                         : humanPlayer.config.provider === 'pollinations'
@@ -1145,14 +1146,14 @@ export const App: React.FC = () => {
                       💸 {currencyService.formatCost(playerCostsUsd[humanPlayer.config.id] || 0, currencyCode)}
                     </span>
                     {thinkingPlayerIndex === humanPlayer.index && (
-                      <span className="text-[8.5px] font-mono text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1 rounded animate-pulse">
-                        <Loader2 className="w-2.5 h-2.5 animate-spin text-amber-400" />
+                      <span className="text-[8.5px] font-mono text-amber-400 font-bold flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded animate-pulse shrink-0">
+                        <Brain className="w-3 h-3 animate-spin text-amber-400 shrink-0" />
                         {tokensPerSecond > 0 ? `${tokensPerSecond.toFixed(1)} т/с` : 'Думает...'}
                       </span>
                     )}
                   </>
                 ) : (
-                  <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                  <span className="font-bold text-slate-200 flex items-center gap-1.5 shrink-0">
                     <span>👤 {humanPlayer?.config.name}</span>
                     {sessionStats.scores[humanPlayer?.config.id] && (sessionStats.scores[humanPlayer.config.id].wins > 0 || sessionStats.scores[humanPlayer.config.id].durakCount > 0) && (
                       <span
@@ -1166,24 +1167,40 @@ export const App: React.FC = () => {
                 )}
 
                 {isHumanTurn && (
-                  <Badge variant="default" className="text-[9px] bg-amber-500 text-slate-950 font-black animate-pulse py-0 px-1">
+                  <Badge variant="default" className="text-[9px] bg-amber-500 text-slate-950 font-black animate-pulse py-0 px-1 shrink-0">
                     {humanPlayer?.config.type === 'llm' ? 'ХОД БОТА' : 'ТВОЙ ХОД!'}
                   </Badge>
                 )}
                 {gameState.phase === 'taking' && isHumanTurn && (
-                  <Badge variant="destructive" className="text-[9px] font-black animate-pulse py-0 px-1">
+                  <Badge variant="destructive" className="text-[9px] font-black animate-pulse py-0 px-1 shrink-0">
                     ПОДКИДЫВАНИЕ ВДОГОНКУ
                   </Badge>
                 )}
               </div>
 
-              {/* Human Player Live Speech Bubble */}
-              {speechBubbles[humanPlayer?.config.id] && (
-                <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10.5px] italic max-w-[280px] sm:max-w-md truncate shadow-sm animate-in fade-in-0 zoom-in-95">
-                  <MessageSquareQuote className="w-3 h-3 text-amber-400 shrink-0" />
-                  <span className="truncate">«{speechBubbles[humanPlayer.config.id]}»</span>
-                </div>
-              )}
+              {/* Right Side: Speech Bubble & Icon-only Menu Sidebar Trigger */}
+              <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                {speechBubbles[humanPlayer?.config.id] && (
+                  <div className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] italic max-w-[180px] truncate shadow-sm">
+                    <MessageSquareQuote className="w-3 h-3 text-amber-400 shrink-0" />
+                    <span className="truncate">«{speechBubbles[humanPlayer.config.id]}»</span>
+                  </div>
+                )}
+
+                {/* Compact icon-only Menu Trigger Button */}
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsBottomSidebarOpen(prev => !prev)}
+                  className={cn(
+                    'h-6 w-6 border-slate-700 bg-slate-900/90 text-slate-300 hover:text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/40 transition-all shadow-sm shrink-0',
+                    isBottomSidebarOpen && 'border-amber-400 bg-amber-500/20 text-amber-300 ring-1 ring-amber-400'
+                  )}
+                  title="Управление партией (Раздать / Пауза). Также работает свайп влево."
+                >
+                  <PanelRight className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                </Button>
+              </div>
             </div>
 
             <PlayerHand
