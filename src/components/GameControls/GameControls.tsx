@@ -7,7 +7,9 @@ import {
   Hand,
   MessageSquareQuote,
   PanelRight,
-  Send
+  Send,
+  X,
+  Zap
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 
@@ -119,24 +121,56 @@ export const GameControls: React.FC<GameControlsProps> = ({
 
       {/* Bottom row: Trash-talk comment input & quick chips */}
       <div className="w-full flex items-center gap-1.5 pt-1 border-t border-slate-800/60">
-        <div className="relative flex-1 flex items-center">
-          <MessageSquareQuote className="absolute left-2.5 w-3.5 h-3.5 text-amber-400/80 pointer-events-none" />
-          <Input
+        <div
+          className={cn(
+            'flex-1 flex items-center gap-1.5 px-2.5 h-8 rounded-xl border transition-all min-w-0',
+            playerComment
+              ? 'bg-amber-950/30 border-amber-500/50 shadow-sm shadow-amber-500/10 ring-1 ring-amber-500/20'
+              : 'bg-slate-950/90 border-slate-800 hover:border-slate-700 focus-within:border-amber-500/60 focus-within:ring-1 focus-within:ring-amber-500/20'
+          )}
+        >
+          <MessageSquareQuote
+            className={cn('w-3.5 h-3.5 shrink-0 transition-colors', playerComment ? 'text-amber-400' : 'text-slate-500')}
+          />
+
+          {playerComment && (
+            <span className="shrink-0 flex items-center gap-0.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30 select-none">
+              <Zap className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+              В очереди:
+            </span>
+          )}
+
+          <input
+            type="text"
             value={playerComment}
             onChange={e => onPlayerCommentChange?.(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="💬 Трэшток к ходу: напиши фразу (отправится с ходом или Enter)..."
-            className="h-7.5 pl-7 pr-7 text-[11px] sm:text-xs bg-slate-950/90 border-slate-800 focus:border-amber-400 text-slate-100 placeholder:text-slate-500 rounded-lg"
+            placeholder={playerComment ? '' : '💬 Трэшток: фраза будет отправляться с каждым ходом...'}
+            className={cn(
+              'flex-1 min-w-0 bg-transparent border-0 outline-none focus:outline-none focus:ring-0 text-[11px] sm:text-xs placeholder:text-slate-500 transition-colors',
+              playerComment ? 'text-amber-200 font-medium' : 'text-slate-100'
+            )}
           />
+
           {playerComment && (
-            <button
-              type="button"
-              onClick={() => onSendComment?.()}
-              className="absolute right-1.5 p-1 text-amber-400 hover:text-amber-300 hover:bg-slate-800 rounded transition-colors"
-              title="Отправить реплику сейчас"
-            >
-              <Send className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-0.5 shrink-0 pl-1">
+              <button
+                type="button"
+                onClick={() => onPlayerCommentChange?.('')}
+                className="p-1 text-slate-400 hover:text-rose-300 hover:bg-rose-500/20 rounded-md transition-colors"
+                title="Отменить фразу (очистить очередь ходов)"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onSendComment?.()}
+                className="p-1 text-amber-400 hover:text-amber-300 hover:bg-amber-500/20 rounded-md transition-colors"
+                title="Сказать сейчас (Enter)"
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
         </div>
 
@@ -150,7 +184,12 @@ export const GameControls: React.FC<GameControlsProps> = ({
                 onPlayerCommentChange?.(phrase);
                 onSendComment?.(phrase);
               }}
-              className="px-2 py-0.5 rounded-md bg-slate-800/90 hover:bg-amber-500/20 text-[10px] text-slate-300 hover:text-amber-300 border border-slate-700/60 transition-colors whitespace-nowrap"
+              className={cn(
+                'px-2 py-0.5 rounded-md text-[10px] border transition-colors whitespace-nowrap',
+                playerComment === phrase
+                  ? 'bg-amber-500/30 text-amber-200 border-amber-500/50 font-semibold shadow-sm'
+                  : 'bg-slate-800/90 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border-slate-700/60'
+              )}
             >
               {phrase}
             </button>
@@ -162,3 +201,4 @@ export const GameControls: React.FC<GameControlsProps> = ({
 };
 
 export default GameControls;
+

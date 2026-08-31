@@ -5,6 +5,7 @@ import {
   DurakMode,
   GameAction,
   GameState,
+  LlmProvider,
   MoveLogItem,
   PlayerConfig,
   PlayerSessionScore,
@@ -196,6 +197,8 @@ export const App: React.FC = () => {
   // Live LLM state
   const [thinkingPlayerIndex, setThinkingPlayerIndex] = useState<number | null>(null);
   const [lastThinkingPlayerName, setLastThinkingPlayerName] = useState<string>('');
+  const [lastThinkingModelId, setLastThinkingModelId] = useState<string>('');
+  const [lastThinkingProvider, setLastThinkingProvider] = useState<LlmProvider | undefined>(undefined);
   const [liveThinkingText, setLiveThinkingText] = useState('');
   const [isStreamingThinking, setIsStreamingThinking] = useState(false);
   const [tokensPerSecond, setTokensPerSecond] = useState(0);
@@ -471,6 +474,8 @@ export const App: React.FC = () => {
       setIsGameBusy(true);
       setThinkingPlayerIndex(turnPlayerIndex);
       setLastThinkingPlayerName(player.config.name);
+      setLastThinkingModelId(player.config.modelId || '');
+      setLastThinkingProvider(player.config.provider);
       setLiveThinkingText('');
       setIsStreamingThinking(true);
       setCurrentMoveCostUsd(0);
@@ -479,7 +484,7 @@ export const App: React.FC = () => {
       setFailedBotTurn(null);
 
       try {
-        const lastComment = Object.values(speechBubbles).slice(-1)[0];
+        const lastComment = humanTrashTalk.trim() || Object.values(speechBubbles).slice(-1)[0];
         console.log(`[App] Triggering LLM move for ${player.config.name} (${player.config.modelId})`);
 
         const result = await durakJudge.executeLlmTurn({
@@ -731,6 +736,10 @@ export const App: React.FC = () => {
     const text = (customText !== undefined ? customText : humanTrashTalk).trim();
     if (!text) return;
 
+    if (customText !== undefined) {
+      setHumanTrashTalk(customText);
+    }
+
     const human = gameState.players[0];
     const humanId = human?.config.id || 'player_human';
     const humanName = human?.config.name || 'Кожаный мешок';
@@ -759,9 +768,6 @@ export const App: React.FC = () => {
       timestamp: Date.now()
     };
     setMoveHistory(prev => [...prev.slice(-25), speechRecord]);
-
-    // Clear input
-    setHumanTrashTalk('');
   };
 
   // Human card click handler
@@ -1076,6 +1082,16 @@ export const App: React.FC = () => {
               thinkingPlayerIndex !== null
                 ? gameState.players[thinkingPlayerIndex]?.config.name
                 : lastThinkingPlayerName || gameState.players.find(p => !p.isHuman)?.config.name
+            }
+            modelId={
+              thinkingPlayerIndex !== null
+                ? gameState.players[thinkingPlayerIndex]?.config.modelId
+                : lastThinkingModelId || gameState.players.find(p => !p.isHuman)?.config.modelId || 'openai'
+            }
+            provider={
+              thinkingPlayerIndex !== null
+                ? gameState.players[thinkingPlayerIndex]?.config.provider
+                : lastThinkingProvider || gameState.players.find(p => !p.isHuman)?.config.provider
             }
             className="h-full"
           />
